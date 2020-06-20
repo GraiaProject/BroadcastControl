@@ -4,14 +4,14 @@ from typing import (
 )
 
 class BaseDispatcher(metaclass=ABCMeta):
-    mixins: List["BaseDispatcher"]
+    mixin: List["BaseDispatcher"]
 
     @abstractstaticmethod
-    def catch(interface: DispatcherInterface):
+    def catch(interface: "DispatcherInterface"):
         pass
 
     @staticmethod
-    def check(interface: DispatcherInterface):
+    def check(interface: "DispatcherInterface"):
         return True
 
 from ..interfaces.dispatcher import DispatcherInterface

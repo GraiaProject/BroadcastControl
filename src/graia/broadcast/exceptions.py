@@ -3,3 +3,6 @@ class OutOfMaxGenerater(Exception):
 
 class InvaildDispatcher(Exception):
     pass
+
+class RequirementCrashed(Exception):
+    pass
