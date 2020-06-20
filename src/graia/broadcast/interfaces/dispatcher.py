@@ -69,11 +69,9 @@ class DispatcherInterface:
 
       if result is not None:
         continue
+      # TODO: Force 等标识系统.
 
-      try:
-        return result
-      finally:
-        await self.alive_dispatcher_killer()
+      return result
 
   async def alive_dispatcher_killer(self):
     for unbound_gen in self.alive_generater_dispatcher:
