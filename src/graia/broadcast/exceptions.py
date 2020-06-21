@@ -15,3 +15,9 @@ class ExistedNamespace(Exception):
 
 class UnexistedNamespace(Exception):
     pass
+
+class RegisteredEventListener(Exception):
+    pass
+
+class InvaildEventName(Exception):
+    pass

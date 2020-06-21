@@ -1,16 +1,19 @@
 import asyncio
-from typing import Any, AsyncGenerator, Generator, List
+from typing import Any, AsyncGenerator, Generator, List, Type, Union
 
 from iterwrapper import IterWrapper as iw
 
 from .builtins.dispatchers import MappingRule, SimpleMapping
 from .builtins.event import ExceptionThrowed
 from .entities.decorater import Decorater
+from .entities.dispatcher import BaseDispatcher
 from .entities.event import BaseEvent
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .exceptions import DisabledNamespace, RequirementCrashed, ExistedNamespace, UnexistedNamespace
+from .exceptions import (DisabledNamespace, ExistedNamespace,
+                         RegisteredEventListener, RequirementCrashed,
+                         UnexistedNamespace, InvaildEventName)
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
@@ -180,3 +183,44 @@ class Broadcast:
   def enableNamespace(self, name):
     ns = self.getNamespace(name)
     ns.disabled = False
+
+  def containListener(self, target):
+    for i in self.listeners:
+      if i.callable == target:
+        return True
+    return False
+
+  def getListener(self, target):
+    for i in self.listeners:
+      if i.callable == target:
+        return i
+
+  def receiver(self,
+      event: Union[str, Type[BaseEvent]],
+      priority: int = 0,
+      dispatchers: List[Type[BaseDispatcher]] = [],
+      namespace: Namespace = None
+  ):
+    if isinstance(event, str):
+      _name = event
+      event = self.findEvent(event)
+      if not event:
+        raise InvaildEventName(_name, "is not vaild!")
+    print(event)
+    def receiver_wrapper(callable_target):
+      may_listener = self.getListener(callable_target)
+      if not may_listener:
+        self.listeners.append(Listener(
+          callable=callable_target,
+          namespace=namespace or self.getDefaultNamespace(),
+          inline_dispatchers=dispatchers,
+          priority=priority,
+          listening_events=[event]
+        ))
+      else:
+        if event not in may_listener.listening_events:
+          may_listener.listening_events.append(event)
+        else:
+          raise RegisteredEventListener(event.__name__, "has been registered!")
+      return callable_target
+    return receiver_wrapper

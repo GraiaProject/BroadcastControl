@@ -44,24 +44,14 @@ broadcast = Broadcast(loop=loop)
 
 def de1(i: DecoraterInterface):
     return 666
-
+@broadcast.receiver("TestEvent")
+@broadcast.receiver("TestEvent")
+def test(u, r: 13, i: "123" = Decorater(de1)):
+    print(u, r, i)
 async def main():
-    """
-    def test(u, r: 13, i: "123" = Decorater(de1, pre=True)):
-        print(u, r, i)
     loop = asyncio.get_running_loop()
     loop.create_task(broadcast.event_runner())
-    for _ in range(2):
-        broadcast.listeners.append(Listener(
-            callable=test,
-            namespace=broadcast.default_namespace,
-            listening_events=[
-                TestEvent
-            ]
-        ))
     await broadcast.postEvent(TestEvent())
     await asyncio.sleep(10)
-    """
-    print(broadcast.findEvent("TestEvent"))
 
 loop.run_until_complete(main())
