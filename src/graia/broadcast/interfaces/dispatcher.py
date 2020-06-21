@@ -21,7 +21,7 @@ class DispatcherInterface:
 
   name: str = None
   annotation = None
-  default = None
+  default = None # dispatcher 允许任何值, 包括 Decorater, 只不过 Decorater Dispatcher 的优先级是隐式最高, 所以基本上不可能截获到.
 
   def __init__(self,
     broadcast_instance: "Broadcast",
@@ -47,58 +47,59 @@ class DispatcherInterface:
     if any([self.name is not None, self.annotation is not None, self.default is not None, self._index != 0]):
       initial_value = (self.name, self.annotation, self.default, self._index)
     self.name, self.annotation, self.default = name, annotation, default
-    for self._index, dispatcher in enumerate(
+    try:
+      for self._index, dispatcher in enumerate(
           self.dispatchers[self._index:], start=self._index):
-      
-      # just allow Dispatcher or any Callable
-      if not isinstance(dispatcher, BaseDispatcher) and not callable(dispatcher):
-          raise InvaildDispatcher("dispatcher must base on 'BaseDispatcher' or is a callable: ", dispatcher)
-      
-      local_dispatcher = None
 
-      if issubclass(dispatcher, BaseDispatcher):
-        local_dispatcher = dispatcher().catch
-      elif callable(dispatcher) and not inspect.isclass(dispatcher):
-        local_dispatcher = dispatcher
+        # just allow Dispatcher or any Callable
+        if not isinstance(dispatcher, BaseDispatcher) and not callable(dispatcher):
+            raise InvaildDispatcher("dispatcher must base on 'BaseDispatcher' or is a callable: ", dispatcher)
+          
+        local_dispatcher = None
 
-      result = None
+        if inspect.isclass(dispatcher) and issubclass(dispatcher, BaseDispatcher):
+          local_dispatcher = dispatcher().catch
+        elif callable(dispatcher) and not inspect.isclass(dispatcher):
+          local_dispatcher = dispatcher
+        elif isinstance(dispatcher, BaseDispatcher):
+          local_dispatcher = dispatcher.catch
 
-      if inspect.isasyncgenfunction(local_dispatcher) or\
-          (inspect.isgeneratorfunction(local_dispatcher) and \
-            not inspect.iscoroutinefunction(local_dispatcher)):
-        #print(local_dispatcher, inspect.isgeneratorfunction(local_dispatcher), inspect.iscoroutinefunction(local_dispatcher))
-        now_dispatcher_generater = None
-        if inspect.isasyncgenfunction(local_dispatcher):
-          now_dispatcher_generater = local_dispatcher(self).__aiter__()
-          try:
-            result = await now_dispatcher_generater.__anext__()
-          except StopAsyncIteration as e:
-            result = e.value # pylint: disable=no-member
+        result = None
+
+        if inspect.isasyncgenfunction(local_dispatcher) or\
+            (inspect.isgeneratorfunction(local_dispatcher) and \
+              not inspect.iscoroutinefunction(local_dispatcher)):
+          now_dispatcher_generater = None
+          if inspect.isasyncgenfunction(local_dispatcher):
+            now_dispatcher_generater = local_dispatcher(self).__aiter__()
+            try:
+              result = await now_dispatcher_generater.__anext__()
+            except StopAsyncIteration as e:
+              continue
+          else:
+            now_dispatcher_generater = local_dispatcher(self).__iter__()
+            try:
+              result = now_dispatcher_generater.__next__()
+            except StopIteration as e:
+              result = e.value
+          self.alive_generater_dispatcher.append(now_dispatcher_generater)
         else:
-          now_dispatcher_generater = local_dispatcher(self).__iter__()
-          try:
-            result = now_dispatcher_generater.__next__()
-          except StopIteration as e:
-            result = e.value
-        self.alive_generater_dispatcher.append(now_dispatcher_generater)
-      else:
-        if inspect.iscoroutinefunction(local_dispatcher):
-          result = await local_dispatcher(self)
-        else:
-          result = local_dispatcher(self)
+          if inspect.iscoroutinefunction(local_dispatcher):
+            result = await local_dispatcher(self)
+          else:
+            result = local_dispatcher(self)
 
-      if result is None:
-        continue
-      
-      if result.__class__ is Force:
-        result = result.target
+        if result is None:
+          continue
+        
+        if result.__class__ is Force:
+          result = result.target
 
-      try:
         return result
-      finally:
+      else:
+        raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
+    finally:
         self.name, self.annotation, self.default, self._index = initial_value
-    else:
-      raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
 
   async def alive_dispatcher_killer(self):
     for unbound_gen in self.alive_generater_dispatcher:

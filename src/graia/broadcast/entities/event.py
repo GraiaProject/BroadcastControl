@@ -1,6 +1,8 @@
 from abc import ABCMeta
 from iterwrapper import IterWrapper
 from .dispatcher import BaseDispatcher
+from pydantic import BaseModel # pylint: disable=no-name-in-module
+
 class EventMeta(ABCMeta):
     def __new__(mcls, name, bases, mapping, **kwargs):
         if any(IterWrapper(bases).filter(lambda x: getattr(x, "__base_event__", False)).collect(list)):
@@ -13,3 +15,6 @@ class EventMeta(ABCMeta):
 class BaseEvent(metaclass=EventMeta):
     Dispatcher: BaseDispatcher
 
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)

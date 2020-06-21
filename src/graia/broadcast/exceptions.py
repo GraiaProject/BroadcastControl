@@ -6,3 +6,6 @@ class InvaildDispatcher(Exception):
 
 class RequirementCrashed(Exception):
     pass
+
+class DisabledNamespace(Exception):
+    pass

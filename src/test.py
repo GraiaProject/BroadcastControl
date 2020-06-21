@@ -1,6 +1,8 @@
 from graia.broadcast.entities.event import BaseEvent
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
+from graia.broadcast.protocols.executor import ExecutorProtocol
+from graia.broadcast import Broadcast
 
 class D1(BaseDispatcher):
     @staticmethod
@@ -32,15 +34,15 @@ class TestEvent(BaseEvent):
                 yield 12
 
 event = TestEvent()
+broadcast = Broadcast()
 
 async def main():
-    print(DispatcherInterface.dispatcher_mixin_handler(TestEvent.Dispatcher))
-    async with DispatcherInterface(1, event, 
-            DispatcherInterface.dispatcher_mixin_handler(TestEvent.Dispatcher)) as interface:
-        interface: DispatcherInterface
-        print(await interface.execute_with("u", 1, 1))
-        print(await interface.execute_with("r", "13", 1))
-        print("start kill")
+    def test(u, r: 13, i: "123"):
+        print(u, r, i)
+    await broadcast.Executor(ExecutorProtocol(
+        target=test,
+        event=TestEvent()
+    ))
 
 import asyncio
 asyncio.run(main())

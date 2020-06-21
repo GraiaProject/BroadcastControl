@@ -6,5 +6,9 @@ from ..entities.event import BaseEvent
 
 class ExecutorProtocol(BaseModel):
     target: Union[Callable, Listener]
-    dispatchers: List[BaseDispatcher]
+    dispatchers: List[BaseDispatcher] = []
     event: BaseEvent
+    hasReferrer: bool = False
+
+    class Config:
+        arbitrary_types_allowed = True
