@@ -73,7 +73,7 @@ class DispatcherInterface:
           try:
             result = await now_dispatcher_generater.__anext__()
           except StopAsyncIteration as e:
-            result = e.value
+            result = e.value # pylint: disable=no-member
         else:
           now_dispatcher_generater = local_dispatcher(self).__iter__()
           try:
@@ -126,5 +126,3 @@ class DispatcherInterface:
       .map(lambda x: DispatcherInterface.dispatcher_mixin_handler(x))
       .flat().collect(list)
     )]
-
-from .. import Broadcast
