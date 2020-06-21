@@ -10,7 +10,7 @@ from .entities.event import BaseEvent
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .exceptions import DisabledNamespace, RequirementCrashed
+from .exceptions import DisabledNamespace, RequirementCrashed, ExistedNamespace, UnexistedNamespace
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
@@ -123,3 +123,60 @@ class Broadcast:
 
   async def postEvent(self, event: BaseEvent):
     await self.event_queue.put(event)
+
+  @staticmethod
+  def event_class_generator(target=BaseEvent):
+    for i in target.__subclasses__():
+      yield i
+      if i.__subclasses__():
+        yield from Broadcast.event_class_generator(i)
+
+  @staticmethod
+  def findEvent(name: str):
+    for i in Broadcast.event_class_generator():
+      if i.__name__ == name:
+        return i
+
+  def getDefaultNamespace(self):
+    return self.default_namespace
+  
+  def createNamespace(self, name, *, priority: int = 0, hide: bool = False, disabled: bool = False):
+    if self.containNamespace(name):
+      raise ExistedNamespace(name, "has been created!")
+    self.namespaces.append(Namespace(name=name, priority=priority, hide=hide, disabled=disabled))
+    return self.namespaces[-1]
+  
+  def removeNamespace(self, name):
+    if self.containNamespace(name):
+      for index, i in enumerate(self.namespaces):
+        if i.name == name:
+          self.namespaces.pop(index)
+          return
+
+  def containNamespace(self, name):
+    for i in self.namespaces:
+      if i.name == name:
+        return True
+    return False
+  
+  def getNamespace(self, name):
+    if self.containNamespace(name):
+      for i in self.namespaces:
+        if i.name == name:
+          return i
+
+  def hideNamespace(self, name):
+    ns = self.getNamespace(name)
+    ns.hide = True
+
+  def unhideNamespace(self, name):
+    ns = self.getNamespace(name)
+    ns.hide = False
+
+  def disableNamespace(self, name):
+    ns = self.getNamespace(name)
+    ns.disabled = True
+
+  def enableNamespace(self, name):
+    ns = self.getNamespace(name)
+    ns.disabled = False

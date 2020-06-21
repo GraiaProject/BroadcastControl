@@ -9,3 +9,9 @@ class RequirementCrashed(Exception):
 
 class DisabledNamespace(Exception):
     pass
+
+class ExistedNamespace(Exception):
+    pass
+
+class UnexistedNamespace(Exception):
+    pass

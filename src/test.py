@@ -4,6 +4,8 @@ from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 from graia.broadcast.protocols.executor import ExecutorProtocol
 from graia.broadcast.entities.listener import Listener
 from graia.broadcast import Broadcast
+from graia.broadcast.entities.decorater import Decorater
+from graia.broadcast.interfaces.decorater import DecoraterInterface
 import random
 import asyncio
 
@@ -40,8 +42,12 @@ event = TestEvent()
 loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop)
 
+def de1(i: DecoraterInterface):
+    return 666
+
 async def main():
-    def test(u, r: 13, i: "123"):
+    """
+    def test(u, r: 13, i: "123" = Decorater(de1, pre=True)):
         print(u, r, i)
     loop = asyncio.get_running_loop()
     loop.create_task(broadcast.event_runner())
@@ -55,5 +61,7 @@ async def main():
         ))
     await broadcast.postEvent(TestEvent())
     await asyncio.sleep(10)
+    """
+    print(broadcast.findEvent("TestEvent"))
 
 loop.run_until_complete(main())
