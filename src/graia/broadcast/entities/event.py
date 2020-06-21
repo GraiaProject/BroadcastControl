@@ -1,7 +1,10 @@
 from abc import ABCMeta
+
 from iterwrapper import IterWrapper
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
 from .dispatcher import BaseDispatcher
-from pydantic import BaseModel # pylint: disable=no-name-in-module
+
 
 class EventMeta(ABCMeta):
     def __new__(mcls, name, bases, mapping, **kwargs):

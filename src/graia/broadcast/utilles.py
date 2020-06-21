@@ -1,7 +1,9 @@
-from iterwrapper import IterWrapper
-from typing import Callable, Any, List
-from pydantic import BaseModel # pylint: disable=no-name-in-module
 import inspect
+from typing import Any, Callable, List
+
+from iterwrapper import IterWrapper
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
 
 async def async_enumerate(iterable, start: int = 0):
     count = start

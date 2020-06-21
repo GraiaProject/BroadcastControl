@@ -1,7 +1,5 @@
 from abc import ABCMeta, abstractstaticmethod
-from typing import (
-    List
-)
+from typing import List
 
 class BaseDispatcher(metaclass=ABCMeta):
     mixin: List["BaseDispatcher"]
@@ -13,5 +11,3 @@ class BaseDispatcher(metaclass=ABCMeta):
     @staticmethod
     def check(interface: "DispatcherInterface"):
         return True
-
-from ..interfaces.dispatcher import DispatcherInterface

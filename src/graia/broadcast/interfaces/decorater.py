@@ -1,9 +1,11 @@
-from .dispatcher import DispatcherInterface
+import inspect
+from typing import Any, Dict
+
 from ..entities.decorater import Decorater
 from ..entities.signatures import Force
 from ..utilles import run_always_await
-from typing import Dict, Any
-import inspect
+from .dispatcher import DispatcherInterface
+
 
 class DecoraterInterface:
     """Graia Broadcast Control 内部机制 Decorate 的具体管理实现

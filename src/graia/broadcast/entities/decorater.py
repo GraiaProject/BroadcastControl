@@ -1,5 +1,7 @@
-from pydantic import BaseModel # pylint: disable=no-name-in-module
-from typing import Callable, Any
+from typing import Any, Callable
+
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
 
 class Decorater(BaseModel):
     target: Callable[[Any], Any]

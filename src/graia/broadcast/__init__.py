@@ -1,18 +1,21 @@
 import asyncio
-from .entities.namespace import Namespace
-from typing import List, AsyncGenerator, Generator, Any
-from .entities.event import BaseEvent
-from .interfaces.dispatcher import DispatcherInterface
-from .interfaces.decorater import DecoraterInterface
-from .entities.decorater import Decorater
-from .exceptions import DisabledNamespace, RequirementCrashed
-from .protocols.executor import ExecutorProtocol
+from typing import Any, AsyncGenerator, Generator, List
+
 from iterwrapper import IterWrapper as iw
-from .entities.listener import Listener
-from .utilles import iw_group, argument_signature, run_always_await, printer
+
+from .builtins.dispatchers import MappingRule, SimpleMapping
 from .builtins.event import ExceptionThrowed
-from .builtins.dispatchers import SimpleMapping, MappingRule
+from .entities.decorater import Decorater
+from .entities.event import BaseEvent
+from .entities.listener import Listener
+from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
+from .exceptions import DisabledNamespace, RequirementCrashed
+from .interfaces.decorater import DecoraterInterface
+from .interfaces.dispatcher import DispatcherInterface
+from .protocols.executor import ExecutorProtocol
+from .utilles import argument_signature, iw_group, printer, run_always_await
+
 
 class Broadcast:
   loop: asyncio.AbstractEventLoop
@@ -20,13 +23,13 @@ class Broadcast:
 
   default_namespace: Namespace
   namespaces: List[Namespace] = []
-  listeners: List[Listener]
+  listeners: List[Listener] = []
 
   stoped: bool = False
 
-  def __init__(self, loop: asyncio.AbstractEventLoop = None, queue: asyncio.Queue = None):
+  def __init__(self, *, loop: asyncio.AbstractEventLoop = None, queue: asyncio.Queue = None):
     self.loop = loop or asyncio.get_event_loop()
-    self.event_queue = queue or asyncio.Queue(15)
+    self.event_queue = queue or asyncio.Queue(15, loop=self.loop)
     self.default_namespace = Namespace(name="default", default=True)
 
   async def event_generator(self) -> AsyncGenerator[Any, BaseEvent]:
@@ -54,10 +57,7 @@ class Broadcast:
       for listener in self.listener_generator(event.__class__):
         self.loop.create_task(self.Executor(ExecutorProtocol(
           target=listener,
-          event=event,
-          dispatchers=DispatcherInterface.dispatcher_mixin_handler(
-            event.Dispatcher
-          )
+          event=event
         )))
       
   async def Executor(self, protocol: ExecutorProtocol):

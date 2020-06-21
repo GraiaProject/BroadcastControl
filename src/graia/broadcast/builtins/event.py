@@ -1,7 +1,9 @@
-from ..entities.event import BaseEvent
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
 from ..entities.dispatcher import BaseDispatcher
+from ..entities.event import BaseEvent
 from ..interfaces.dispatcher import DispatcherInterface
-from pydantic import BaseModel # pylint: disable=no-name-in-module
+
 
 class ExceptionThrowed(BaseEvent):
     exception: Exception

@@ -1,7 +1,7 @@
-from pydantic import BaseModel # pylint: disable=no-name-in-module
-from typing import (
-    Any
-)
+from typing import Any
+
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
 
 class ObjectContainer(BaseModel):
     target: Any
@@ -22,3 +22,4 @@ class RemoveMe(ObjectContainer):
     """当本标识的实例为一受 Executor 影响的 Listener 返回值时,
     Executor 会尝试在当前 Broadcast 实例中找出并删除本 Listener 实例.
     """
+    

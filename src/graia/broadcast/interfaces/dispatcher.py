@@ -1,14 +1,15 @@
-from typing import (
-  List, Generator, AsyncGenerator, Union
-)
-from ..entities.dispatcher import BaseDispatcher
-from ..entities.event import BaseEvent
-from ..exceptions import OutOfMaxGenerater, InvaildDispatcher, RequirementCrashed
-from ..utilles import async_enumerate
-from ..entities.signatures import Force
+import inspect
+from typing import AsyncGenerator, Generator, List, Union
+
 from iterwrapper import IterWrapper
 
-import inspect
+from ..entities.dispatcher import BaseDispatcher
+from ..entities.event import BaseEvent
+from ..entities.signatures import Force
+from ..exceptions import (InvaildDispatcher, OutOfMaxGenerater,
+                          RequirementCrashed)
+from ..utilles import async_enumerate
+
 
 class DispatcherInterface:
   broadcast: "Broadcast"

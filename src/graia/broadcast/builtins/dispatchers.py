@@ -1,8 +1,11 @@
+from typing import Any, Callable, List
+
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
 from ..entities.dispatcher import BaseDispatcher
-from ..interfaces.dispatcher import DispatcherInterface
 from ..entities.signatures import Force
-from pydantic import BaseModel # pylint: disable=no-name-in-module
-from typing import Callable, Any, List
+from ..interfaces.dispatcher import DispatcherInterface
+
 
 class MappingRule(BaseModel):
     mode: Callable[[DispatcherInterface], bool]

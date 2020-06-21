@@ -1,6 +1,9 @@
-from pydantic import BaseModel # pylint: disable=no-name-in-module
-from .dispatcher import BaseDispatcher
 from typing import List
+
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
+from .dispatcher import BaseDispatcher
+
 
 class Namespace(BaseModel):
     name: str
