@@ -11,7 +11,7 @@ class DecoraterInterface:
     """Graia Broadcast Control 内部机制 Decorate 的具体管理实现
     """
     dispatcher_interface: DispatcherInterface
-    local_storage: Dict[str, Any] = {}
+    local_storage: Dict[Any, Any] = {}
     return_value: Any = None
 
     def __init__(self, dispatcher_interface: DispatcherInterface):

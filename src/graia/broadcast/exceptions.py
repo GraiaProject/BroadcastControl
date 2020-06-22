@@ -21,3 +21,6 @@ class RegisteredEventListener(Exception):
 
 class InvaildEventName(Exception):
     pass
+
+class InvaildContextTarget(Exception):
+    pass
