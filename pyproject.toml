@@ -5,7 +5,7 @@ description = "a highly customizable, elegantly designed event system based on a
 authors = ["Chenwe_i_lin <Chenwe_i_lin@outlook.com>"]
 license = "AGPL-3.0"
 packages = [
-    { include = "graia.broadcast", from = "src" }
+    { include = "graia", from = "src" }
 ]
 
 [tool.poetry.dependencies]
@@ -15,7 +15,6 @@ pydantic = "^1.5.1"
 
 [tool.poetry.dev-dependencies]
 pylint = "^2.5.3"
-bandit = "^1.6.2"
 devtools = "^0.5.1"
 
 [build-system]
