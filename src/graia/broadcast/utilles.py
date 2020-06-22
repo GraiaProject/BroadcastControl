@@ -12,7 +12,7 @@ async def async_enumerate(iterable, start: int = 0):
         count += 1
 
 async def run_always_await(any_callable):
-    if inspect.iscoroutinefunction(any_callable):
+    if inspect.iscoroutine(any_callable):
         return await any_callable
     else:
         return any_callable

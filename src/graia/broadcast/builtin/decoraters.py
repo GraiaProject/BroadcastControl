@@ -1,9 +1,10 @@
 from ..entities.decorater import Decorater
 from ..protocols.executor import ExecutorProtocol
-from typing import Callable, ContextManager
+from typing import Callable, ContextManager, Any, Optional
 from ..entities.signatures import Force
 from ..interfaces.decorater import DecoraterInterface
 import inspect
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
 from ..exceptions import InvaildContextTarget
 
 class Depend(Decorater):
@@ -18,19 +19,31 @@ class Depend(Decorater):
     async def target(self, interface: DecoraterInterface):
         if self.cache:
             if interface.local_storage.get(self.depend_callable):
-                return interface.local_storage.get(self.depend_callable)
-        result = Force(await interface.dispatcher_interface.broadcast.Executor(ExecutorProtocol(
+                yield interface.local_storage.get(self.depend_callable)
+                return
+        result = await interface.dispatcher_interface.broadcast.Executor(ExecutorProtocol(
             target=self.depend_callable,
             event=interface.event,
             hasReferrer=True
-        )))
-        if self.cache:
-            interface.local_storage[self.depend_callable] = result
-        return result
+        ))
+        if inspect.isasyncgen(result) or\
+            (inspect.isgenerator(result) and \
+              not inspect.iscoroutinefunction(self.depend_callable)):
+            if inspect.isgenerator(result):
+                for i in result:
+                    yield i
+            elif inspect.isasyncgen(result):
+                async for i in result:
+                    yield i
+        else:
+            if self.cache:
+                interface.local_storage[self.depend_callable] = result
+            yield result
+            return
 
 class Middleware(Decorater):
     pre = True
-    context_target: ContextManager
+    context_target: Any
 
     def __init__(self, context_target: ContextManager):
         self.context_target = context_target

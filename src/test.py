@@ -5,8 +5,10 @@ from graia.broadcast.protocols.executor import ExecutorProtocol
 from graia.broadcast.entities.listener import Listener
 from graia.broadcast import Broadcast
 from graia.broadcast.entities.decorater import Decorater
+from graia.broadcast.builtin.decoraters import Depend, Middleware
 from graia.broadcast.interfaces.decorater import DecoraterInterface
 import random
+from devtools import debug
 import asyncio
 
 class D1(BaseDispatcher):
@@ -41,17 +43,20 @@ class TestEvent(BaseEvent):
 event = TestEvent()
 loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop)
+def de1(cc: 13):
+    yield cc, 23
 
-def de1(i: DecoraterInterface):
-    return 666
+m = open("./pylint.conf")
+
 @broadcast.receiver("TestEvent")
-@broadcast.receiver("TestEvent")
-def test(u, r: 13, i: "123" = Decorater(de1)):
-    print(u, r, i)
+def test(u, r: 13, i: "123" = Depend(de1), oc=Middleware(m)):
+    print(u, r, i, debug(oc), oc.closed)
+
 async def main():
     loop = asyncio.get_running_loop()
     loop.create_task(broadcast.event_runner())
     await broadcast.postEvent(TestEvent())
     await asyncio.sleep(10)
+    print(m.closed)
 
 loop.run_until_complete(main())

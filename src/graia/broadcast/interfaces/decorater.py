@@ -40,20 +40,19 @@ class DecoraterInterface:
             if not decorater.pre:
                 # 作为 装饰
                 self.return_value = await interface.execute_with(interface.name, interface.annotation, None)
-                try:
-                    # 这里隐式的复用了 dispatcher interface 的生成器终结者机制
-                    if inspect.isasyncgenfunction(decorater.target):
-                        # 如果是异步生成器
-                        async for i in decorater.target(self):
-                            yield i
-                    elif (inspect.isgeneratorfunction(decorater.target) and \
-                        not inspect.iscoroutinefunction(decorater.target)):
-                        # 同步生成器
-                        for i in decorater.target(self):
-                            yield i
-                    else:
-                        yield Force(await run_always_await(decorater.target(self)))
-                finally:
+            try:
+                # 这里隐式的复用了 dispatcher interface 的生成器终结者机制
+                if inspect.isasyncgenfunction(decorater.target):
+                    # 如果是异步生成器
+                    async for i in decorater.target(self):
+                        yield i
+                elif (inspect.isgeneratorfunction(decorater.target) and \
+                    not inspect.iscoroutinefunction(decorater.target)):
+                    # 同步生成器
+                    for i in decorater.target(self):
+                        yield i
+                else:
+                    yield Force(await run_always_await(decorater.target(self)))
+            finally:
+                if not decorater.pre:
                     self.return_value = None
-            else:
-                yield Force(await run_always_await(decorater.target(self)))
