@@ -2,8 +2,6 @@ import inspect
 from typing import Any, Callable, List
 
 from iterwrapper import IterWrapper
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
-
 
 async def async_enumerate(iterable, start: int = 0):
     count = start
@@ -36,3 +34,20 @@ def argument_signature(callable_target):
         param.default if param.default != inspect._empty else None)
         for name, param in dict(inspect.signature(callable_target).parameters).items()
     ]
+
+async def whatever_gen_once(any_gen, *args, **kwargs):
+    if inspect.isasyncgenfunction(any_gen):
+        # 如果是异步生成器函数
+        async for i in any_gen(*args, **kwargs):
+            return i
+    elif (inspect.isgeneratorfunction(any_gen) and \
+        not inspect.iscoroutinefunction(any_gen)):
+        # 同步生成器
+        for i in any_gen(*args, **kwargs):
+            return i
+    elif inspect.isgenerator(any_gen):
+        for i in any_gen:
+            return i
+    elif inspect.isasyncgen(any_gen):
+        async for i in any_gen:
+            return i

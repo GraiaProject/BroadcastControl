@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any, AsyncGenerator, Generator, List, Type, Union
+import inspect
 
 from iterwrapper import IterWrapper as iw
 
@@ -17,7 +18,7 @@ from .exceptions import (DisabledNamespace, ExistedNamespace,
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
-from .utilles import argument_signature, iw_group, printer, run_always_await
+from .utilles import argument_signature, iw_group, printer, run_always_await, whatever_gen_once
 
 
 class Broadcast:
@@ -83,7 +84,8 @@ class Broadcast:
     parameter_compile_result = {}
 
     async with DispatcherInterface(self, protocol.event, dispatchers) as dii:
-      dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
+      if (not dii.dispatchers) or type(dii.dispatchers[0]) is not DecoraterInterface:
+        dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
       dii.dispatchers.append(SimpleMapping([
@@ -95,26 +97,35 @@ class Broadcast:
           MappingRule.annotationEquals(Namespace, protocol.target.namespace)
         ] if isinstance(protocol.target, Listener) else []),
       ]))
+
       try:
         for name, annotation, default in argument_signature(target_callable):
           parameter_compile_result[name] =\
             await dii.execute_with(name, annotation, default)
       except RequirementCrashed:
-            raise
+        raise
       except Exception as e:
-        import traceback
-        traceback.print_exc()
-        if not protocol.hasReferrer:
+        if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出
           await self.postEvent(ExceptionThrowed(
             exception=e,
             event=protocol.event
           ))
-        else:
-          raise
+        raise
 
-      result = await run_always_await(
-        target_callable(**parameter_compile_result)
-      )
+      try:
+        result = await run_always_await(
+          target_callable(**parameter_compile_result)
+        )
+      except Exception as e:
+        if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出
+          await self.postEvent(ExceptionThrowed(
+            exception=e,
+            event=protocol.event
+          ))
+        raise
+      if inspect.isgenerator(result) or inspect.isasyncgen(result):
+        dii.alive_generater_dispatcher[-1].append(result)
+        result = await whatever_gen_once(result)
       if isinstance(result, Force):
         return result.content
 
@@ -206,7 +217,6 @@ class Broadcast:
       event = self.findEvent(event)
       if not event:
         raise InvaildEventName(_name, "is not vaild!")
-    print(event)
     def receiver_wrapper(callable_target):
       may_listener = self.getListener(callable_target)
       if not may_listener:

@@ -22,16 +22,12 @@ class D2(BaseDispatcher):
     @staticmethod
     async def catch(interface: DispatcherInterface):
         if interface.annotation == "13":
-            print(list(map(lambda x: getattr(interface, x), ['name', 'annotation', "default", "_index"])))
             r = await interface.execute_with(interface.name, "123", interface.default)
-            print(list(map(lambda x: getattr(interface, x), ['name', 'annotation', "default", "_index"])))
             return r
 
 class TestEvent(BaseEvent):
     class Dispatcher(BaseDispatcher):
-        mixin = [
-            D2
-        ]
+        mixin = [D2]
 
         @staticmethod
         def catch(interface: DispatcherInterface):
@@ -43,20 +39,23 @@ class TestEvent(BaseEvent):
 event = TestEvent()
 loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop)
-def de1(cc: 13):
-    yield cc, 23
-
 m = open("./pylint.conf")
+def de1(cc: 13, r_de1 = Middleware(m)):
+    assert r_de1.closed == False # 在这里, r.closed 不应该是 True
+    #print(f"in de1, r.closed is {r_de1.closed}")
+    yield cc, 23, r_de1
 
 @broadcast.receiver("TestEvent")
-def test(u, r: 13, i: "123" = Depend(de1), oc=Middleware(m)):
-    print(u, r, i, debug(oc), oc.closed)
+def test(u, r: 13, dii: DispatcherInterface, i: "123" = Depend(de1)):
+    #print("test", i)
+    assert i[2].closed == True
+    #print("in test, r.closed is", i[2].closed)
 
 async def main():
     loop = asyncio.get_running_loop()
     loop.create_task(broadcast.event_runner())
     await broadcast.postEvent(TestEvent())
-    await asyncio.sleep(10)
+    await asyncio.sleep(2)
     print(m.closed)
 
 loop.run_until_complete(main())

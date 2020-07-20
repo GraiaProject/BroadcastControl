@@ -4,7 +4,6 @@ from typing import Callable, ContextManager, Any, Optional
 from ..entities.signatures import Force
 from ..interfaces.decorater import DecoraterInterface
 import inspect
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
 from ..exceptions import InvaildContextTarget
 
 class Depend(Decorater):
@@ -15,6 +14,9 @@ class Depend(Decorater):
     def __init__(self, callable, *, cache=False):
         self.cache = cache
         self.depend_callable = callable
+
+    def __repr__(self) -> str:
+        return "<Depend target={0}>".format(self.depend_callable)
 
     async def target(self, interface: DecoraterInterface):
         if self.cache:
