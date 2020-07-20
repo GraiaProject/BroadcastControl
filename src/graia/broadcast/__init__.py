@@ -162,6 +162,7 @@ class Broadcast:
   
   def removeNamespace(self, name):
     if self.containNamespace(name):
+      self.listeners = [i for i in self.listeners if i.namespace.name != name]
       for index, i in enumerate(self.namespaces):
         if i.name == name:
           self.namespaces.pop(index)
@@ -205,6 +206,9 @@ class Broadcast:
     for i in self.listeners:
       if i.callable == target:
         return i
+
+  def removeListener(self, target):
+    self.listeners.remove(target)
 
   def receiver(self,
       event: Union[str, Type[BaseEvent]],
