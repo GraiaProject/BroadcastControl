@@ -24,3 +24,6 @@ class InvaildEventName(Exception):
 
 class InvaildContextTarget(Exception):
     pass
+
+class PropagationCancelled(Exception):
+    pass

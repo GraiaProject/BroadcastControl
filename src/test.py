@@ -7,6 +7,7 @@ from graia.broadcast import Broadcast
 from graia.broadcast.entities.decorater import Decorater
 from graia.broadcast.builtin.decoraters import Depend, Middleware
 from graia.broadcast.interfaces.decorater import DecoraterInterface
+from graia.broadcast.exceptions import PropagationCancelled
 import random
 from devtools import debug
 import asyncio
@@ -42,19 +43,23 @@ broadcast = Broadcast(loop=loop)
 m = open("./pylint.conf")
 def de1(cc: 13, r_de1 = Middleware(m)):
     assert r_de1.closed == False # 在这里, r.closed 不应该是 True
-    #print(f"in de1, r.closed is {r_de1.closed}")
+    print(f"in de1, r.closed is {r_de1.closed}")
     yield cc, 23, r_de1
 
 @broadcast.receiver("TestEvent")
 def test(u, r: 13, dii: DispatcherInterface, i: "123" = Depend(de1)):
-    #print("test", i)
+    print("test", i)
     assert i[2].closed == True
-    #print("in test, r.closed is", i[2].closed)
+    print("in test, r.closed is", i[2].closed)
+
+@broadcast.receiver("TestEvent", priority=0)
+def r():
+    raise PropagationCancelled
+
+debug(broadcast.listeners)
 
 async def main():
-    loop = asyncio.get_running_loop()
-    loop.create_task(broadcast.event_runner())
-    await broadcast.postEvent(TestEvent())
+    broadcast.postEvent(TestEvent())
     await asyncio.sleep(2)
     print(m.closed)
 

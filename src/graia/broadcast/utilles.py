@@ -27,6 +27,14 @@ def iw_group(iw: IterWrapper, key: Callable[[Any], Any]):
         temp[k].append(i)
     return IterWrapper(temp.values()).map(list)
 
+def group_dict(iw: IterWrapper, key: Callable[[Any], Any]):
+    temp = {}
+    for i in iw:
+        k = key(i)
+        temp.setdefault(k, [])
+        temp[k].append(i)
+    return temp
+
 def argument_signature(callable_target):
     return [
         (name,
