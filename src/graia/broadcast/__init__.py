@@ -1,7 +1,7 @@
 import asyncio
-from typing import Generator, List, Type, Union, Dict
 import inspect
 import traceback
+from typing import Dict, Generator, List, Type, Union
 
 from iterwrapper import IterWrapper as iw
 
@@ -13,13 +13,16 @@ from .entities.event import BaseEvent
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .exceptions import (DisabledNamespace, ExistedNamespace,
-                         RegisteredEventListener, RequirementCrashed,
-                         UnexistedNamespace, InvaildEventName, PropagationCancelled)
+from .exceptions import (
+    DisabledNamespace, ExistedNamespace, InvaildEventName,
+    PropagationCancelled, RegisteredEventListener, RequirementCrashed,
+    UnexistedNamespace)
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
-from .utilles import argument_signature, run_always_await, whatever_gen_once, group_dict
+from .utilles import (argument_signature, group_dict, run_always_await,
+                      whatever_gen_once)
+
 
 class Broadcast:
   loop: asyncio.AbstractEventLoop
@@ -46,8 +49,7 @@ class Broadcast:
     listener_generator: Generator[Listener, None, None],
     event: BaseEvent
   ):
-    listeners = list(listener_generator) # 此处的 listeners 是已经被筛过的了
-    grouped: Dict[int, List[Listener]] = group_dict(listeners, lambda x: x.priority)
+    grouped: Dict[int, List[Listener]] = group_dict(listener_generator, lambda x: x.priority)
     for current_priority in sorted(grouped.keys()):
       current_group = grouped[current_priority]
       tasks, _ = await asyncio.wait([
@@ -56,9 +58,10 @@ class Broadcast:
           event=event
         )) for i in current_group
       ])
-      if any([True if isinstance(i.exception(), PropagationCancelled) else False for i in list(tasks)]):
-        break
-      
+      for i in list(tasks):
+        if isinstance(i.exception(), PropagationCancelled):
+          break
+
   async def Executor(self, protocol: ExecutorProtocol):
     if isinstance(protocol.target, Listener):
       if protocol.target.namespace.disabled:
@@ -83,15 +86,16 @@ class Broadcast:
         DecoraterInterface(dii)  # pylint: disable=unused-variable
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
-      dii.inject_global_dispatcher(SimpleMapping([
-        MappingRule.annotationEquals(Broadcast, self),
-        MappingRule.annotationEquals(ExecutorProtocol, protocol),
-        MappingRule.annotationEquals(DispatcherInterface, dii),
-        *([ # 当 protocol.target 为 Listener 时的特有解析
-          MappingRule.annotationEquals(Listener, protocol.target),
-          MappingRule.annotationEquals(Namespace, protocol.target.namespace)
-        ] if isinstance(protocol.target, Listener) else []),
-      ]))
+      if protocol.enableInternalAccess:
+        dii.inject_global_dispatcher(SimpleMapping([
+          MappingRule.annotationEquals(Broadcast, self),
+          MappingRule.annotationEquals(ExecutorProtocol, protocol),
+          MappingRule.annotationEquals(DispatcherInterface, dii),
+          *([ # 当 protocol.target 为 Listener 时的特有解析
+            MappingRule.annotationEquals(Listener, protocol.target),
+            MappingRule.annotationEquals(Namespace, protocol.target.namespace)
+          ] if isinstance(protocol.target, Listener) else []),
+        ]))
 
       try:
         for name, annotation, default in argument_signature(target_callable):

@@ -1,5 +1,5 @@
 import inspect
-from typing import AsyncGenerator, Generator, List, Union, Any, Callable
+from typing import Any, AsyncGenerator, Callable, Generator, List, Union
 
 from iterwrapper import IterWrapper
 
@@ -8,7 +8,8 @@ from ..entities.event import BaseEvent
 from ..entities.signatures import Force
 from ..exceptions import (InvaildDispatcher, OutOfMaxGenerater,
                           RequirementCrashed)
-from ..utilles import async_enumerate
+from ..utilles import async_enumerate, flat_yield_from, is_asyncgener
+
 
 class ContextStackItem:
   def __init__(self, name, annotation, default, local_dispatchers, index=0) -> None:
@@ -114,22 +115,19 @@ class DispatcherInterface:
 
         result = None
 
-        if inspect.isasyncgenfunction(local_dispatcher) or\
-            (inspect.isgeneratorfunction(local_dispatcher) and \
-              not inspect.iscoroutinefunction(local_dispatcher)):
-          now_dispatcher_generater = None
-          if inspect.isasyncgenfunction(local_dispatcher):
-            now_dispatcher_generater = local_dispatcher(self).__aiter__()
-            try:
-              result = await now_dispatcher_generater.__anext__()
-            except StopAsyncIteration as e:
-              continue
-          else:
-            now_dispatcher_generater = local_dispatcher(self).__iter__()
-            try:
-              result = now_dispatcher_generater.__next__()
-            except StopIteration as e:
-              result = e.value
+        if is_asyncgener(local_dispatcher):
+          now_dispatcher_generater = local_dispatcher(self).__aiter__()
+          try:
+            result = await now_dispatcher_generater.__anext__()
+          except StopAsyncIteration as e:
+            continue
+          self.alive_generater_dispatcher[-1].append(now_dispatcher_generater)
+        elif inspect.isgeneratorfunction(local_dispatcher):
+          now_dispatcher_generater = local_dispatcher(self).__iter__()
+          try:
+            result = now_dispatcher_generater.__next__()
+          except StopIteration as e:
+            result = e.value
           self.alive_generater_dispatcher[-1].append(now_dispatcher_generater)
         else:
           if inspect.iscoroutinefunction(local_dispatcher):
@@ -170,8 +168,7 @@ class DispatcherInterface:
     if not unbound_mixin:
       return [dispatcher]
 
-    return [dispatcher, *(IterWrapper(unbound_mixin)
+    return [dispatcher, *(flat_yield_from(IterWrapper(unbound_mixin)
       .filter(lambda x: issubclass(x, BaseDispatcher))
       .map(lambda x: DispatcherInterface.dispatcher_mixin_handler(x))
-      .flat().collect(list)
-    )]
+    ))]

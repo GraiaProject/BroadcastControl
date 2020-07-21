@@ -11,7 +11,7 @@ from graia.broadcast.exceptions import PropagationCancelled
 import random
 from devtools import debug
 import asyncio
-
+import time
 class D1(BaseDispatcher):
     @staticmethod
     def catch(interface: DispatcherInterface):
@@ -40,27 +40,35 @@ class TestEvent(BaseEvent):
 event = TestEvent()
 loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop)
-m = open("./pylint.conf")
-def de1(cc: 13, r_de1 = Middleware(m)):
-    assert r_de1.closed == False # 在这里, r.closed 不应该是 True
-    print(f"in de1, r.closed is {r_de1.closed}")
-    yield cc, 23, r_de1
+def de1(cc: 13):
+    pass
 
 @broadcast.receiver("TestEvent")
-def test(u, r: 13, dii: DispatcherInterface, i: "123" = Depend(de1)):
-    print("test", i)
-    assert i[2].closed == True
-    print("in test, r.closed is", i[2].closed)
+async def test(u, r: 13):
+    await asyncio.sleep(4 + random.random())
 
-@broadcast.receiver("TestEvent", priority=0)
-def r():
-    raise PropagationCancelled
+"""
+tasks = [broadcast.layered_scheduler(
+    listener_generator=broadcast.default_listener_generator(event.__class__),
+    event=event
+) for _ in range(10000)]
+"""
+tasks = [broadcast.Executor(ExecutorProtocol(
+    target=test,
+    event=event
+)) for _ in range(10000)]
 
-debug(broadcast.listeners)
+import cProfile, pstats, io
 
-async def main():
-    broadcast.postEvent(TestEvent())
-    await asyncio.sleep(2)
-    print(m.closed)
+pr = cProfile.Profile()
+pr.enable()
 
-loop.run_until_complete(main())
+loop.run_until_complete(asyncio.wait(tasks))
+
+pr.disable()
+s = io.StringIO()
+sortby = "cumtime"  # 仅适用于 3.6, 3.7 把这里改成常量了
+ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+ps.print_stats()
+print(s.getvalue())
+pr.dump_stats("pipeline.prof")

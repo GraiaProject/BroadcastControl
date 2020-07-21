@@ -2,6 +2,7 @@ import inspect
 from typing import Any, Callable, List
 
 from iterwrapper import IterWrapper
+from functools import lru_cache
 
 async def async_enumerate(iterable, start: int = 0):
     count = start
@@ -35,6 +36,7 @@ def group_dict(iw: IterWrapper, key: Callable[[Any], Any]):
         temp[k].append(i)
     return temp
 
+@lru_cache(None)
 def argument_signature(callable_target):
     return [
         (name,
@@ -42,6 +44,10 @@ def argument_signature(callable_target):
         param.default if param.default != inspect._empty else None)
         for name, param in dict(inspect.signature(callable_target).parameters).items()
     ]
+
+@lru_cache(None)
+def is_asyncgener(o):
+    return inspect.isasyncgenfunction(o)
 
 async def whatever_gen_once(any_gen, *args, **kwargs):
     if inspect.isasyncgenfunction(any_gen):
@@ -59,3 +65,8 @@ async def whatever_gen_once(any_gen, *args, **kwargs):
     elif inspect.isasyncgen(any_gen):
         async for i in any_gen:
             return i
+
+def flat_yield_from(l):
+    for i in l:
+        if type(i) == list:
+            yield from i

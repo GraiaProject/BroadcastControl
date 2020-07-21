@@ -16,6 +16,7 @@ class ExecutorProtocol(BaseModel):
     ]] = []
     event: BaseEvent
     hasReferrer: bool = False
+    enableInternalAccess: bool = False
 
     class Config:
         arbitrary_types_allowed = True
