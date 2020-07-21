@@ -1,6 +1,5 @@
 import asyncio
-from inspect import trace
-from typing import Any, AsyncGenerator, Generator, List, Type, Union, Dict
+from typing import Generator, List, Type, Union, Dict
 import inspect
 import traceback
 
@@ -20,8 +19,7 @@ from .exceptions import (DisabledNamespace, ExistedNamespace,
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
-from .utilles import argument_signature, iw_group, printer, run_always_await, whatever_gen_once, group_dict
-
+from .utilles import argument_signature, run_always_await, whatever_gen_once, group_dict
 
 class Broadcast:
   loop: asyncio.AbstractEventLoop
@@ -82,10 +80,10 @@ class Broadcast:
 
     async with DispatcherInterface(self, protocol.event, dispatchers) as dii:
       if (not dii.dispatchers) or type(dii.dispatchers[0]) is not DecoraterInterface:
-        dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
+        DecoraterInterface(dii)  # pylint: disable=unused-variable
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
-      dii.dispatchers.append(SimpleMapping([
+      dii.inject_global_dispatcher(SimpleMapping([
         MappingRule.annotationEquals(Broadcast, self),
         MappingRule.annotationEquals(ExecutorProtocol, protocol),
         MappingRule.annotationEquals(DispatcherInterface, dii),

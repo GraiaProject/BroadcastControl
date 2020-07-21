@@ -85,6 +85,9 @@ class DispatcherInterface:
   def inject_local_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
     self.local_dispatchers.extend(dispatchers)
 
+  def inject_global_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
+    self.dispatchers.extend(dispatchers)
+
   async def execute_with(self, name: str, annotation, default):
     # here, dispatcher.mixins has been handled.
     
