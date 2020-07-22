@@ -105,7 +105,6 @@ class DispatcherInterface:
             raise InvaildDispatcher("dispatcher must base on 'BaseDispatcher' or is a callable: ", dispatcher)
           
         local_dispatcher = None
-
         if inspect.isclass(dispatcher) and issubclass(dispatcher, BaseDispatcher):
           local_dispatcher = dispatcher().catch
         elif callable(dispatcher) and not inspect.isclass(dispatcher):

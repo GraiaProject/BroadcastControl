@@ -50,7 +50,10 @@ class Broadcast:
     event: BaseEvent
   ):
     grouped: Dict[int, List[Listener]] = group_dict(listener_generator, lambda x: x.priority)
+    break_flag = False
     for current_priority in sorted(grouped.keys()):
+      if break_flag:
+        break
       current_group = grouped[current_priority]
       tasks, _ = await asyncio.wait([
         self.Executor(ExecutorProtocol(
@@ -60,7 +63,7 @@ class Broadcast:
       ])
       for i in list(tasks):
         if isinstance(i.exception(), PropagationCancelled):
-          break
+          break_flag = True
 
   async def Executor(self, protocol: ExecutorProtocol):
     if isinstance(protocol.target, Listener):
@@ -120,12 +123,13 @@ class Broadcast:
         raise # 防止打印出错误
       except Exception as e:
         traceback.print_exc()
-        if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出
+        if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出(防止重复抛出事件)
           self.postEvent(ExceptionThrowed(
             exception=e,
             event=protocol.event
           ))
         raise
+
       if inspect.isgenerator(result) or inspect.isasyncgen(result):
         dii.alive_generater_dispatcher[-1].append(result)
         result = await whatever_gen_once(result)

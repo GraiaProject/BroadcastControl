@@ -45,18 +45,18 @@ def de1(cc: 13):
 
 @broadcast.receiver("TestEvent")
 async def test(u, r: 13):
-    await asyncio.sleep(4 + random.random())
+    pass
 
-"""
+
 tasks = [broadcast.layered_scheduler(
     listener_generator=broadcast.default_listener_generator(event.__class__),
     event=event
-) for _ in range(10000)]
+) for _ in range(100000)]
 """
 tasks = [broadcast.Executor(ExecutorProtocol(
     target=test,
     event=event
-)) for _ in range(10000)]
+)) for _ in range(100000)]"""
 
 import cProfile, pstats, io
 
