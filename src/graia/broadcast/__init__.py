@@ -104,6 +104,10 @@ class Broadcast:
         for name, annotation, default in argument_signature(target_callable):
           parameter_compile_result[name] =\
             await dii.execute_with(name, annotation, default)
+        if isinstance(protocol.target, Listener):
+          if protocol.target.headless_decoraters:
+            for hl_d in protocol.target.headless_decoraters:
+              await dii.execute_with(None, None, hl_d)
       except RequirementCrashed:
         raise
       except Exception as e:
