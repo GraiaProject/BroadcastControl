@@ -5,7 +5,7 @@ from ..entities.event import BaseEvent
 from ..interfaces.dispatcher import DispatcherInterface
 
 
-class ExceptionThrowed(BaseEvent):
+class ExceptionThrowed(BaseEvent, BaseModel):
     exception: Exception
     event: BaseEvent
 

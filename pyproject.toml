@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graia-broadcast"
-version = "0.0.4"
+version = "0.0.5"
 description = "a highly customizable, elegantly designed event system based on asyncio"
 authors = ["Chenwe_i_lin <Chenwe_i_lin@outlook.com>"]
 license = "AGPL-3.0"

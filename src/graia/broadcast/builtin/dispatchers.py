@@ -31,3 +31,15 @@ def SimpleMapping(rules: List[MappingRule]):
                 if rule.mode(interface):
                     return Force(rule.value)
     return mapping_dispatcher
+
+def Hook(condition, fixer):
+    class hook_dispatcher(BaseDispatcher):
+        @staticmethod
+        def catch(interface: DispatcherInterface):
+            if condition(interface):
+                return fixer(interface.execute_with(
+                    interface.name,
+                    interface.annotation,
+                    interface.default
+                ))
+    return hook_dispatcher

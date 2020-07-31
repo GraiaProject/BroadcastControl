@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, AsyncGenerator, Callable, Generator, List, Union
+from typing import Any, AsyncGenerator, Callable, Generator, List, Union, Dict
 
 from iterwrapper import IterWrapper
 
@@ -26,7 +26,6 @@ class ContextStackItem:
   default: Any
   local_dispatchers: List[Union[BaseDispatcher, Callable]]
   index: int
-  
 
 class DispatcherInterface:
   broadcast: "Broadcast"

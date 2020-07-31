@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractstaticmethod
 from typing import List
 
 class BaseDispatcher(metaclass=ABCMeta):
+    always: bool
     mixin: List["BaseDispatcher"]
 
     @abstractstaticmethod

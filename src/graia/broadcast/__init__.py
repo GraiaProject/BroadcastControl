@@ -89,7 +89,9 @@ class Broadcast:
         DecoraterInterface(dii)  # pylint: disable=unused-variable
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
-      if protocol.enableInternalAccess:
+      if protocol.enableInternalAccess or \
+        (isinstance(protocol.target, Listener) and \
+          protocol.target.enable_internal_access):
         dii.inject_global_dispatcher(SimpleMapping([
           MappingRule.annotationEquals(Broadcast, self),
           MappingRule.annotationEquals(ExecutorProtocol, protocol),
@@ -105,13 +107,12 @@ class Broadcast:
           parameter_compile_result[name] =\
             await dii.execute_with(name, annotation, default)
         if isinstance(protocol.target, Listener):
-          if protocol.target.headless_decoraters:
+          if protocol.target.headless_decoraters: # 无头装饰器
             for hl_d in protocol.target.headless_decoraters:
               await dii.execute_with(None, None, hl_d)
       except RequirementCrashed:
         raise
       except Exception as e:
-        traceback.print_exc()
         if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出
           self.postEvent(ExceptionThrowed(
             exception=e,
@@ -126,7 +127,6 @@ class Broadcast:
       except PropagationCancelled:
         raise # 防止打印出错误
       except Exception as e:
-        traceback.print_exc()
         if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出(防止重复抛出事件)
           self.postEvent(ExceptionThrowed(
             exception=e,
@@ -232,7 +232,9 @@ class Broadcast:
       event: Union[str, Type[BaseEvent]],
       priority: int = 16,
       dispatchers: List[Type[BaseDispatcher]] = [],
-      namespace: Namespace = None
+      namespace: Namespace = None,
+      headless_decoraters: List[Decorater] = [],
+      enable_internal_access: bool = False
   ):
     if isinstance(event, str):
       _name = event
@@ -248,7 +250,9 @@ class Broadcast:
           namespace=namespace or self.getDefaultNamespace(),
           inline_dispatchers=dispatchers,
           priority=priority,
-          listening_events=[event]
+          listening_events=[event],
+          headless_decoraters=headless_decoraters,
+          enable_internal_access=enable_internal_access
         ))
       else:
         if event not in may_listener.listening_events:
