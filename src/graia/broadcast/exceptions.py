@@ -27,3 +27,6 @@ class InvaildContextTarget(Exception):
 
 class PropagationCancelled(Exception):
     pass
+
+class ExecutionStop(Exception):
+    pass

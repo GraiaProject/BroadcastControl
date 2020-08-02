@@ -16,7 +16,7 @@ from .entities.signatures import Force, RemoveMe
 from .exceptions import (
     DisabledNamespace, ExistedNamespace, InvaildEventName,
     PropagationCancelled, RegisteredEventListener, RequirementCrashed,
-    UnexistedNamespace)
+    UnexistedNamespace, ExecutionStop)
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
@@ -110,6 +110,8 @@ class Broadcast:
           if protocol.target.headless_decoraters: # 无头装饰器
             for hl_d in protocol.target.headless_decoraters:
               await dii.execute_with(None, None, hl_d)
+      except ExecutionStop:
+        return
       except RequirementCrashed:
         raise
       except Exception as e:
@@ -124,8 +126,10 @@ class Broadcast:
         result = await run_always_await(
           target_callable(**parameter_compile_result)
         )
+      except ExecutionStop:
+        return
       except PropagationCancelled:
-        raise # 防止打印出错误
+        raise # 防止事件广播
       except Exception as e:
         if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出(防止重复抛出事件)
           self.postEvent(ExceptionThrowed(
