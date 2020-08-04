@@ -40,35 +40,13 @@ class TestEvent(BaseEvent):
 event = TestEvent()
 loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop)
-def de1(cc: 13):
-    pass
 
 @broadcast.receiver("TestEvent")
 async def test(u, r: 13):
-    pass
+    raise Exception()
+
+import logging
+logging.basicConfig(format='[%(asctime)s][%(levelname)s]: %(message)s', level=logging.DEBUG)
 
 
-tasks = [broadcast.layered_scheduler(
-    listener_generator=broadcast.default_listener_generator(event.__class__),
-    event=event
-) for _ in range(100000)]
-"""
-tasks = [broadcast.Executor(ExecutorProtocol(
-    target=test,
-    event=event
-)) for _ in range(100000)]"""
-
-import cProfile, pstats, io
-
-pr = cProfile.Profile()
-pr.enable()
-
-loop.run_until_complete(asyncio.wait(tasks))
-
-pr.disable()
-s = io.StringIO()
-sortby = "cumtime"  # 仅适用于 3.6, 3.7 把这里改成常量了
-ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-ps.print_stats()
-print(s.getvalue())
-pr.dump_stats("pipeline.prof")
+broadcast.postEvent(TestEvent())

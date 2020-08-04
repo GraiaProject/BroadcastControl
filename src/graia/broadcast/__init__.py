@@ -33,9 +33,12 @@ class Broadcast:
 
   stoped: bool = False
 
-  def __init__(self, *, loop: asyncio.AbstractEventLoop = None):
+  debug_flag: bool
+
+  def __init__(self, *, loop: asyncio.AbstractEventLoop = None, debug_flag: bool = False):
     self.loop = loop or asyncio.get_event_loop()
     self.default_namespace = Namespace(name="default", default=True)
+    self.debug_flag = debug_flag
   
   def default_listener_generator(self, event_class) -> Listener:
     yield from (iw(self.listeners)
@@ -115,6 +118,7 @@ class Broadcast:
       except RequirementCrashed:
         raise
       except Exception as e:
+        traceback.print_exc()
         if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出
           self.postEvent(ExceptionThrowed(
             exception=e,
@@ -131,6 +135,8 @@ class Broadcast:
       except PropagationCancelled:
         raise # 防止事件广播
       except Exception as e:
+        if self.debug_flag:
+          traceback.print_exc()
         if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出(防止重复抛出事件)
           self.postEvent(ExceptionThrowed(
             exception=e,
