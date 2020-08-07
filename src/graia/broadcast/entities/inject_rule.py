@@ -5,7 +5,7 @@ from .event import BaseEvent
 from ..interfaces.dispatcher import DispatcherInterface
 from .dispatcher import BaseDispatcher
 
-class BaseRule(abc.ABC, BaseModel):
+class BaseRule(metaclass=abc.ABCMeta):
     target_dispatcher: BaseDispatcher
 
     def __init__(self, target_dispatcher: BaseDispatcher) -> None:
