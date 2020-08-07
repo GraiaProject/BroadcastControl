@@ -15,6 +15,9 @@ class BaseRule(abc.ABC, BaseModel):
     def check(self, event: BaseEvent, dii: DispatcherInterface) -> bool:
         pass
 
+    class Config:
+        arbitrary_types_allowed = True
+
 class SpecialEventType(BaseRule):
     target_dispatcher: BaseDispatcher
 
