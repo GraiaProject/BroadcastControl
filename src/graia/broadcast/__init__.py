@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import traceback
-from typing import Dict, Generator, List, Type, Union
+from typing import Dict, Generator, List, NoReturn, Optional, Type, Union
 
 from iterwrapper import IterWrapper as iw
 
@@ -10,13 +10,14 @@ from .builtin.event import ExceptionThrowed
 from .entities.decorater import Decorater
 from .entities.dispatcher import BaseDispatcher
 from .entities.event import BaseEvent
+from .entities.inject_rule import BaseRule
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .exceptions import (
-    DisabledNamespace, ExistedNamespace, InvaildEventName,
-    PropagationCancelled, RegisteredEventListener, RequirementCrashed,
-    UnexistedNamespace, ExecutionStop)
+from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
+                         InvaildEventName, PropagationCancelled,
+                         RegisteredEventListener, RequirementCrashed,
+                         UnexistedNamespace)
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
@@ -28,17 +29,23 @@ class Broadcast:
   loop: asyncio.AbstractEventLoop
 
   default_namespace: Namespace
-  namespaces: List[Namespace] = []
-  listeners: List[Listener] = []
+  namespaces: List[Namespace]
+  listeners: List[Listener]
 
-  stoped: bool = False
+  # 规则驱动注入
+  dispatcher_inject_rules: List[BaseRule] = []
 
   debug_flag: bool
 
-  def __init__(self, *, loop: asyncio.AbstractEventLoop = None, debug_flag: bool = False):
+  def __init__(self, *, loop: asyncio.AbstractEventLoop = None, debug_flag: bool = False,
+    inject_rules: Optional[List[BaseRule]] = None
+  ):
     self.loop = loop or asyncio.get_event_loop()
     self.default_namespace = Namespace(name="default", default=True)
     self.debug_flag = debug_flag
+    self.namespaces = []
+    self.listeners = []
+    self.dispatcher_inject_rules = inject_rules or []
   
   def default_listener_generator(self, event_class) -> Listener:
     yield from (iw(self.listeners)
@@ -47,6 +54,14 @@ class Broadcast:
       .filter(lambda x: event_class in x.listening_events)
       .collect(list) # collect to a whole list
     )
+
+  def addInjectionRule(self, rule: BaseRule) -> NoReturn:
+    if rule in self.dispatcher_inject_rules:
+      raise ValueError("this rule has already been added!")
+    self.dispatcher_inject_rules.append(rule)
+  
+  def removeInjectionRule(self, rule: BaseRule) -> NoReturn:
+    self.dispatcher_inject_rules.remove(rule)
 
   async def layered_scheduler(self,
     listener_generator: Generator[Listener, None, None],
@@ -104,6 +119,10 @@ class Broadcast:
             MappingRule.annotationEquals(Namespace, protocol.target.namespace)
           ] if isinstance(protocol.target, Listener) else []),
         ]))
+      
+      for injection_rule in self.dispatcher_inject_rules:
+        if injection_rule.check(protocol.event, dii):
+          dii.inject_global_dispatcher(injection_rule.target_dispatcher)
 
       try:
         for name, annotation, default in argument_signature(target_callable):

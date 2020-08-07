@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, AsyncGenerator, Callable, Generator, List, Union, Dict
+from typing import Any, AsyncGenerator, Callable, Generator, List, Optional, Type, Union, Dict
 
 from iterwrapper import IterWrapper
 
@@ -170,3 +170,8 @@ class DispatcherInterface:
       .filter(lambda x: issubclass(x, BaseDispatcher))
       .map(lambda x: DispatcherInterface.dispatcher_mixin_handler(x))
     ))]
+  
+  def getDispatcher(self, dispatcher_class: Type[BaseDispatcher]) -> Optional[BaseDispatcher]:
+    for i in self.dispatchers:
+      if type(i) is dispatcher_class:
+        return i
