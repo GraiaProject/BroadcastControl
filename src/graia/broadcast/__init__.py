@@ -122,7 +122,7 @@ class Broadcast:
       
       for injection_rule in self.dispatcher_inject_rules:
         if injection_rule.check(protocol.event, dii):
-          dii.inject_global_dispatcher(injection_rule.target_dispatcher)
+          dii.dispatchers.insert(1, injection_rule.target_dispatcher)
 
       try:
         for name, annotation, default in argument_signature(target_callable):

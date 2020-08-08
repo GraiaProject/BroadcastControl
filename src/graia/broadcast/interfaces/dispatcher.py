@@ -15,6 +15,10 @@ class ContextStackItem:
   def __init__(self, name, annotation, default, local_dispatchers, index=0) -> None:
     self.name, self.annotation, self.default, self.local_dispatchers, self.index = \
       name, annotation, default, local_dispatchers, index
+    self.always_dispatchers = []
+    for i in local_dispatchers:
+      if isinstance(i, BaseDispatcher) and i.always:
+        self.always_dispatchers.append(i)
   
   def __repr__(self) -> str:
     return "<ContextStackItem name={0} annotation={1} default={2} locald={3} index={4}>"\
@@ -27,6 +31,9 @@ class ContextStackItem:
   local_dispatchers: List[Union[BaseDispatcher, Callable]]
   index: int
 
+  # 即 无论如何都会被激活至少 1 次的 Dispatchers.
+  always_dispatchers: List[Union[BaseDispatcher, Callable]]
+
 class DispatcherInterface:
   broadcast: "Broadcast"
   event: BaseEvent
@@ -35,6 +42,7 @@ class DispatcherInterface:
   # name, annotation, default, local_dispatchers, index
   context_stack: List[ContextStackItem] = [ContextStackItem(None, None, None, [], 0)]
   alive_generater_dispatcher: List[List[Union[Generator, AsyncGenerator]]]
+  always_dispatchers: List[Union[BaseDispatcher, Callable]]
 
   _index = 0
 
@@ -73,6 +81,10 @@ class DispatcherInterface:
     self.event = event_instance
     self.dispatchers = dispatchers
     self.alive_generater_dispatcher = [[]]
+    self.always_dispatchers = []
+    for i in dispatchers:
+      if isinstance(i, BaseDispatcher) and i.always:
+        self.always_dispatchers.append(i)
 
   async def __aenter__(self) -> "DispatcherInterface":
     return self
@@ -95,6 +107,7 @@ class DispatcherInterface:
     # generater has special handle method
     self.context_stack.append(ContextStackItem(name, annotation, default, []))
     self.alive_generater_dispatcher.append([])
+    always_laws = self.always_dispatchers[:]
     try:
       for self.context_stack[-1].index, dispatcher in enumerate(
           self.dispatchers[self._index:], start=self._index):
@@ -102,7 +115,13 @@ class DispatcherInterface:
         # just allow Dispatcher(class or instance) or any Callable
         if not isinstance(dispatcher, BaseDispatcher) and not callable(dispatcher):
             raise InvaildDispatcher("dispatcher must base on 'BaseDispatcher' or is a callable: ", dispatcher)
-          
+        
+        if dispatcher in self.context_stack[-1].always_dispatchers:
+          self.context_stack[-1].always_dispatchers.remove(dispatcher)
+        
+        if dispatcher in always_laws:
+          always_laws.remove(dispatcher)
+
         local_dispatcher = None
         if inspect.isclass(dispatcher) and issubclass(dispatcher, BaseDispatcher):
           local_dispatcher = dispatcher().catch
@@ -142,7 +161,36 @@ class DispatcherInterface:
         return result
       else:
         raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
-    finally:
+    finally: # 在某种程度上, 这算 BCC 内的第二个 "无头充数" 的设计了.
+      for always_dispatcher in [*always_laws, *self.context_stack[-1].always_dispatchers]:
+        local_dispatcher = None
+        if inspect.isclass(always_dispatcher) and issubclass(always_dispatcher, BaseDispatcher):
+          local_dispatcher = always_dispatcher().catch
+        elif callable(always_dispatcher) and not inspect.isclass(always_dispatcher):
+          local_dispatcher = always_dispatcher
+        elif isinstance(always_dispatcher, BaseDispatcher):
+          local_dispatcher = always_dispatcher.catch
+
+        if is_asyncgener(local_dispatcher):
+          now_dispatcher_generater = local_dispatcher(self).__aiter__()
+          try:
+            await now_dispatcher_generater.__anext__()
+          except StopAsyncIteration as e:
+            continue
+          self.alive_generater_dispatcher[-1].append(now_dispatcher_generater)
+        elif inspect.isgeneratorfunction(local_dispatcher):
+          now_dispatcher_generater = local_dispatcher(self).__iter__()
+          try:
+            now_dispatcher_generater.__next__()
+          except StopIteration as e:
+            pass
+          self.alive_generater_dispatcher[-1].append(now_dispatcher_generater)
+        else:
+          if inspect.iscoroutinefunction(local_dispatcher):
+            await local_dispatcher(self)
+          else:
+            local_dispatcher(self)
+
       self.context_stack.pop()
 
   async def alive_dispatcher_killer(self):
