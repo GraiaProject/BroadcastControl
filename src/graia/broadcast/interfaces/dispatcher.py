@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, AsyncGenerator, Callable, Generator, List, Optional, Type, Union, Dict
+from typing import Any, AsyncGenerator, Callable, Generator, List, Optional, Type, Union, _GenericAlias
 
 from iterwrapper import IterWrapper
 
@@ -12,9 +12,10 @@ from ..utilles import async_enumerate, flat_yield_from, is_asyncgener
 
 
 class ContextStackItem:
-  def __init__(self, name, annotation, default, local_dispatchers, index=0) -> None:
+  def __init__(self, name, annotation, default, local_dispatchers, optional=False, index=0) -> None:
     self.name, self.annotation, self.default, self.local_dispatchers, self.index = \
       name, annotation, default, local_dispatchers, index
+    self.optional = optional
     self.always_dispatchers = []
     for i in local_dispatchers:
       if isinstance(i, BaseDispatcher) and i.always:
@@ -29,6 +30,7 @@ class ContextStackItem:
   annotation: Any
   default: Any
   local_dispatchers: List[Union[BaseDispatcher, Callable]]
+  optional: bool
   index: int
 
   # 即 无论如何都会被激活至少 1 次的 Dispatchers.
@@ -105,7 +107,15 @@ class DispatcherInterface:
     
     # create a new context
     # generater has special handle method
-    self.context_stack.append(ContextStackItem(name, annotation, default, []))
+    optional = False
+    if isinstance(annotation, _GenericAlias):
+      if annotation.__origin__ is Union and annotation.__args__[-1] is type(None):
+        # 如果是 Optional, 则它的最后一位应为 NoneType.
+        optional = True
+        annotation = annotation.__args__[0]
+      else:
+        raise TypeError("cannot parse this annotation: {0}".format(annotation))
+    self.context_stack.append(ContextStackItem(name, annotation, default, [], optional=optional))
     self.alive_generater_dispatcher.append([])
     always_laws = self.always_dispatchers[:]
     try:
@@ -160,6 +170,8 @@ class DispatcherInterface:
 
         return result
       else:
+        if optional:
+          return None
         raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
     finally: # 在某种程度上, 这算 BCC 内的第二个 "无头充数" 的设计了.
       for always_dispatcher in [*always_laws, *self.context_stack[-1].always_dispatchers]:
@@ -175,8 +187,8 @@ class DispatcherInterface:
           now_dispatcher_generater = local_dispatcher(self).__aiter__()
           try:
             await now_dispatcher_generater.__anext__()
-          except StopAsyncIteration as e:
-            continue
+          except StopAsyncIteration:
+            pass
           self.alive_generater_dispatcher[-1].append(now_dispatcher_generater)
         elif inspect.isgeneratorfunction(local_dispatcher):
           now_dispatcher_generater = local_dispatcher(self).__iter__()

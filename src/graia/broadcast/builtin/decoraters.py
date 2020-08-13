@@ -4,7 +4,7 @@ from typing import Callable, ContextManager, Any, Optional
 from ..entities.signatures import Force
 from ..interfaces.decorater import DecoraterInterface
 import inspect
-from ..exceptions import InvaildContextTarget
+from ..exceptions import InvaildContextTarget, RequirementCrashed
 
 class Depend(Decorater):
     pre = True
@@ -66,3 +66,18 @@ class Middleware(Decorater):
                 yield mw_value
         else:
             raise InvaildContextTarget(self.context_target, "is not vaild as a context target.")
+
+class OptionalDecorator(Decorater):
+    pre = True
+    content: Any
+    origin_default: Any
+
+    def __init__(self, content: Any, origin_default: Any = None) -> None:
+        self.content = content
+        self.origin_default = origin_default
+
+    async def target(self, interface: DecoraterInterface):
+        try:
+            return await interface.dispatcher_interface.execute_with(interface.name, self.content, self.origin_default)
+        except RequirementCrashed:
+            return

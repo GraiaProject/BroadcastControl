@@ -9,6 +9,7 @@ from graia.broadcast.builtin.decoraters import Depend, Middleware
 from graia.broadcast.interfaces.decorater import DecoraterInterface
 from graia.broadcast.exceptions import PropagationCancelled
 import random
+from typing import Optional
 from devtools import debug
 import asyncio
 import time
@@ -32,21 +33,19 @@ class TestEvent(BaseEvent):
 
         @staticmethod
         def catch(interface: DispatcherInterface):
+            print(interface.annotation)
             if interface.name == "u":
                 yield 1
-            elif interface.annotation == 13:
+            elif interface.annotation == str:
                 yield 12
 
 event = TestEvent()
 loop = asyncio.get_event_loop()
-broadcast = Broadcast(loop=loop)
+broadcast = Broadcast(loop=loop, debug_flag=True)
 
 @broadcast.receiver("TestEvent")
-async def test(u, r: 13):
-    raise Exception()
-
-import logging
-logging.basicConfig(format='[%(asctime)s][%(levelname)s]: %(message)s', level=logging.DEBUG)
-
+async def test(u, r: Optional[int]):
+    print(u, r)
 
 broadcast.postEvent(TestEvent())
+loop.run_forever()
