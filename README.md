@@ -12,4 +12,4 @@ poetry add graia-broadcast
 ```
 
 ## 开源协议
-本实现以 AGPL-3.0 为开源协议。
+本实现以 MIT 为开源协议。

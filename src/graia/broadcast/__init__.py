@@ -124,6 +124,10 @@ class Broadcast:
         if injection_rule.check(protocol.event, dii):
           dii.dispatchers.insert(1, injection_rule.target_dispatcher)
 
+      dii.inject_global_dispatcher(SimpleMapping([
+        MappingRule.annotationEquals(protocol.event.__class__, protocol.event)
+      ]))
+
       try:
         for name, annotation, default in argument_signature(target_callable):
           parameter_compile_result[name] =\
@@ -135,6 +139,7 @@ class Broadcast:
       except ExecutionStop:
         return
       except RequirementCrashed:
+        traceback.print_exc()
         raise
       except Exception as e:
         traceback.print_exc()
@@ -150,12 +155,11 @@ class Broadcast:
           target_callable(**parameter_compile_result)
         )
       except ExecutionStop:
-        return
+        result = None
       except PropagationCancelled:
         raise # 防止事件广播
       except Exception as e:
-        if self.debug_flag:
-          traceback.print_exc()
+        traceback.print_exc()
         if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出(防止重复抛出事件)
           self.postEvent(ExceptionThrowed(
             exception=e,
