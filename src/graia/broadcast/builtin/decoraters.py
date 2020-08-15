@@ -4,7 +4,7 @@ from typing import Callable, ContextManager, Any, Optional
 from ..entities.signatures import Force
 from ..interfaces.decorater import DecoraterInterface
 import inspect
-from ..exceptions import InvaildContextTarget, RequirementCrashed
+from ..exceptions import InvaildContextTarget
 
 class Depend(Decorater):
     pre = True
@@ -22,7 +22,7 @@ class Depend(Decorater):
         if self.cache:
             attempt = interface.local_storage.get(self.depend_callable)
             if attempt:
-                yield attempt
+                yield Force(attempt)
                 return
         result = await interface.dispatcher_interface.broadcast.Executor(ExecutorProtocol(
             target=self.depend_callable,
@@ -34,14 +34,14 @@ class Depend(Decorater):
               not inspect.iscoroutinefunction(self.depend_callable)):
             if inspect.isgenerator(result):
                 for i in result:
-                    yield i
+                    yield Force(i)
             elif inspect.isasyncgen(result):
                 async for i in result:
-                    yield i
+                    yield Force(i)
         else:
             if self.cache:
                 interface.local_storage[self.depend_callable] = result
-            yield result
+            yield Force(result)
             return
 
 class Middleware(Decorater):
@@ -66,18 +66,3 @@ class Middleware(Decorater):
                 yield mw_value
         else:
             raise InvaildContextTarget(self.context_target, "is not vaild as a context target.")
-
-class OptionalDecorator(Decorater):
-    pre = True
-    content: Any
-    origin_default: Any
-
-    def __init__(self, content: Any, origin_default: Any = None) -> None:
-        self.content = content
-        self.origin_default = origin_default
-
-    async def target(self, interface: DecoraterInterface):
-        try:
-            return await interface.dispatcher_interface.execute_with(interface.name, self.content, self.origin_default)
-        except RequirementCrashed:
-            return
