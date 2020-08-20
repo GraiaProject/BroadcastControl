@@ -3,9 +3,8 @@ from typing import Any, Dict
 
 from ..entities.decorater import Decorater
 from ..entities.signatures import Force
-from ..utilles import run_always_await
+from ..utilles import is_asyncgener, iscoroutinefunction, isgeneratorfunction, run_always_await
 from .dispatcher import DispatcherInterface
-
 
 class DecoraterInterface:
     """Graia Broadcast Control 内部机制 Decorate 的具体管理实现
@@ -13,6 +12,7 @@ class DecoraterInterface:
     dispatcher_interface: DispatcherInterface
     local_storage: Dict[Any, Any] = {}
     return_value: Any = None
+    default = None
 
     def __init__(self, dispatcher_interface: DispatcherInterface):
         self.dispatcher_interface = dispatcher_interface
@@ -27,10 +27,6 @@ class DecoraterInterface:
         return self.dispatcher_interface.annotation
 
     @property
-    def default(self):
-        return
-
-    @property
     def event(self):
         return self.dispatcher_interface.event
 
@@ -42,12 +38,12 @@ class DecoraterInterface:
                 self.return_value = await interface.execute_with(interface.name, interface.annotation, None)
             try:
                 # 这里隐式的复用了 dispatcher interface 的生成器终结者机制
-                if inspect.isasyncgenfunction(decorater.target):
+                if is_asyncgener(decorater.target):
                     # 如果是异步生成器
                     async for i in decorater.target(self):
                         yield i
-                elif (inspect.isgeneratorfunction(decorater.target) and \
-                    not inspect.iscoroutinefunction(decorater.target)):
+                elif (isgeneratorfunction(decorater.target) and \
+                    not iscoroutinefunction(decorater.target)):
                     # 同步生成器
                     for i in decorater.target(self):
                         yield i

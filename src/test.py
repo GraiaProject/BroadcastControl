@@ -33,7 +33,6 @@ class TestEvent(BaseEvent):
 
         @staticmethod
         def catch(interface: DispatcherInterface):
-            print(interface.annotation)
             if interface.name == "u":
                 yield 1
             elif interface.annotation == str:
@@ -44,8 +43,19 @@ loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop, debug_flag=True)
 
 @broadcast.receiver("TestEvent")
-async def test(u, r: Optional[int]):
-    print(u, r)
+async def test(u):
+    pass
 
-broadcast.postEvent(TestEvent())
-loop.run_forever()
+#broadcast.postEvent(TestEvent())
+#loop.run_forever()
+
+from vprof import runner
+
+task = asyncio.gather(*[
+    broadcast.Executor(ExecutorProtocol(
+        target=test,
+        event=TestEvent()
+    )) for _ in range(40000)
+])
+
+runner.run(loop.run_until_complete, "p", args=(task,), host="localhost", port=8990)

@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import traceback
 from typing import Dict, Generator, List, NoReturn, Optional, Type, Union
+import types
 
 from iterwrapper import IterWrapper as iw
 
@@ -21,7 +22,7 @@ from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
-from .utilles import (argument_signature, group_dict, run_always_await,
+from .utilles import (argument_signature, dispatcher_mixin_handler, group_dict, isasyncgen, isgenerator, run_always_await,
                       whatever_gen_once)
 
 
@@ -34,6 +35,8 @@ class Broadcast:
 
   # 规则驱动注入
   dispatcher_inject_rules: List[BaseRule] = []
+  
+  dispatcher_interface: DispatcherInterface
 
   debug_flag: bool
 
@@ -46,6 +49,7 @@ class Broadcast:
     self.namespaces = []
     self.listeners = []
     self.dispatcher_inject_rules = inject_rules or []
+    self.dispatcher_interface = DispatcherInterface(self)
   
   def default_listener_generator(self, event_class) -> Listener:
     yield from (iw(self.listeners)
@@ -84,14 +88,16 @@ class Broadcast:
           break_flag = True
 
   async def Executor(self, protocol: ExecutorProtocol):
-    if isinstance(protocol.target, Listener):
+    is_listener = isinstance(protocol.target, Listener)
+
+    if is_listener:
       if protocol.target.namespace.disabled:
         raise DisabledNamespace("catched a disabled namespace: {0}".format(protocol.target.namespace.name))
 
     # 先生成 dispatchers
-    dispatchers = DispatcherInterface.dispatcher_mixin_handler(protocol.event.Dispatcher)
+    dispatchers = dispatcher_mixin_handler(protocol.event.Dispatcher)
     # 开始暴力注入
-    if isinstance(protocol.target, Listener):
+    if is_listener:
       if protocol.target.inline_dispatchers:
         dispatchers = protocol.target.inline_dispatchers + dispatchers
       if protocol.target.namespace.injected_dispatchers:
@@ -99,45 +105,49 @@ class Broadcast:
     if protocol.dispatchers:
       dispatchers = protocol.dispatchers + dispatchers
 
-    target_callable = protocol.target.callable if isinstance(protocol.target, Listener) else protocol.target
+    target_callable = protocol.target.callable if is_listener else protocol.target
     parameter_compile_result = {}
 
-    async with DispatcherInterface(self, protocol.event, dispatchers) as dii:
+    async with self.dispatcher_interface.enter_context(protocol.event, dispatchers) as dii:
       if (not dii.dispatchers) or type(dii.dispatchers[0]) is not DecoraterInterface:
         DecoraterInterface(dii)  # pylint: disable=unused-variable
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
       if protocol.enableInternalAccess or \
-        (isinstance(protocol.target, Listener) and \
+        (is_listener and \
           protocol.target.enable_internal_access):
-        dii.inject_global_dispatcher(SimpleMapping([
-          MappingRule.annotationEquals(Broadcast, self),
-          MappingRule.annotationEquals(ExecutorProtocol, protocol),
-          MappingRule.annotationEquals(DispatcherInterface, dii),
-          *([ # 当 protocol.target 为 Listener 时的特有解析
-            MappingRule.annotationEquals(Listener, protocol.target),
-            MappingRule.annotationEquals(Namespace, protocol.target.namespace)
-          ] if isinstance(protocol.target, Listener) else []),
-        ]))
-      
+        internal_access_mapping = {
+          Broadcast: self,
+          ExecutorProtocol: protocol,
+          DispatcherInterface: dii,
+          **({ # 当 protocol.target 为 Listener 时的特有解析
+            Listener: protocol.target,
+            Namespace: protocol.target.namespace
+          } if is_listener else {})
+        }
+        @dii.inject_global_dispatcher
+        def _(interface: DispatcherInterface):
+          return internal_access_mapping.get(interface.annotation)
+
       for injection_rule in self.dispatcher_inject_rules:
         if injection_rule.check(protocol.event, dii):
           dii.dispatchers.insert(1, injection_rule.target_dispatcher)
 
-      dii.inject_global_dispatcher(SimpleMapping([
-        MappingRule.annotationEquals(protocol.event.__class__, protocol.event)
-      ]))
+      @dii.inject_global_dispatcher
+      def _(interface: DispatcherInterface):
+        if interface.annotation is protocol.event.__class__:
+          return protocol.event
 
       try:
         for name, annotation, default in argument_signature(target_callable):
           parameter_compile_result[name] =\
             await dii.execute_with(name, annotation, default)
-        if isinstance(protocol.target, Listener):
+        if is_listener:
           if protocol.target.headless_decoraters: # 无头装饰器
             for hl_d in protocol.target.headless_decoraters:
               await dii.execute_with(None, None, hl_d)
       except ExecutionStop:
-        return
+        raise
       except RequirementCrashed:
         traceback.print_exc()
         raise
@@ -155,26 +165,27 @@ class Broadcast:
           target_callable(**parameter_compile_result)
         )
       except ExecutionStop:
-        result = None
+        raise # 直接抛出.
       except PropagationCancelled:
         raise # 防止事件广播
       except Exception as e:
         traceback.print_exc()
-        if not protocol.hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出(防止重复抛出事件)
+        if not protocol.hasReferrer: # 如果没有referrer, 则广播事件, 如果有则向上抛出(防止重复抛出事件)
           self.postEvent(ExceptionThrowed(
             exception=e,
             event=protocol.event
           ))
         raise
 
-      if inspect.isgenerator(result) or inspect.isasyncgen(result):
+      if isgenerator(result) or isasyncgen(result):
         dii.alive_generater_dispatcher[-1].append(result)
         result = await whatever_gen_once(result)
-      if isinstance(result, Force):
+
+      if result.__class__ is Force:
         return result.content
 
-      if isinstance(result, RemoveMe):
-        if isinstance(protocol.target, Listener):
+      if result.__class__ is RemoveMe:
+        if is_listener:
           if protocol.target in self.listeners:
             self.listeners.pop(self.listeners.index(protocol.target))
       return result
@@ -209,7 +220,6 @@ class Broadcast:
   
   def removeNamespace(self, name):
     if self.containNamespace(name):
-      self.listeners = [i for i in self.listeners if i.namespace.name != name]
       for index, i in enumerate(self.namespaces):
         if i.name == name:
           self.namespaces.pop(index)

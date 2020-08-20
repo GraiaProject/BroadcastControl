@@ -1,3 +1,4 @@
+from graia.broadcast.utilles import isasyncgen, iscoroutinefunction, isgenerator
 from ..entities.decorater import Decorater
 from ..protocols.executor import ExecutorProtocol
 from typing import Callable, ContextManager, Any, Optional
@@ -29,13 +30,13 @@ class Depend(Decorater):
             event=interface.event,
             hasReferrer=True
         ))
-        if inspect.isasyncgen(result) or\
-            (inspect.isgenerator(result) and \
-              not inspect.iscoroutinefunction(self.depend_callable)):
-            if inspect.isgenerator(result):
+        if isasyncgen(result) or\
+            (isgenerator(result) and \
+              not iscoroutinefunction(self.depend_callable)):
+            if isgenerator(result):
                 for i in result:
                     yield Force(i)
-            elif inspect.isasyncgen(result):
+            elif isasyncgen(result):
                 async for i in result:
                     yield Force(i)
         else:
