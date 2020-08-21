@@ -32,23 +32,23 @@ def argument_signature(callable_target):
         for name, param in dict(inspect.signature(callable_target).parameters).items()
     ]
 
-@lru_cache(1000)
+@lru_cache(None)
 def is_asyncgener(o):
     return inspect.isasyncgenfunction(o)
 
-@lru_cache(1000)
+@lru_cache(None)
 def isgeneratorfunction(o):
     return inspect.isgeneratorfunction(o)
 
-@lru_cache(1000)
+@lru_cache(None)
 def iscoroutinefunction(o):
     return inspect.iscoroutinefunction(o)
 
-@lru_cache(1000)
+@lru_cache(None)
 def isasyncgen(o):
     return inspect.isasyncgen(o)
 
-@lru_cache(1000)
+@lru_cache(None)
 def isgenerator(o):
     return inspect.isgenerator(o)
 

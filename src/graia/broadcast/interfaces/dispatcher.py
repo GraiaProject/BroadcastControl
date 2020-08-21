@@ -142,7 +142,8 @@ class DispatcherInterface:
           self.dispatchers[self._index:], start=self._index):
         
         if getattr(dispatcher, "always", False):
-          always_dispatcher.remove(dispatcher)
+          try: always_dispatcher.remove(dispatcher)
+          except: pass
 
         if isinstance(dispatcher, type) and issubclass(dispatcher, BaseDispatcher):
           local_dispatcher = dispatcher().catch
@@ -155,24 +156,26 @@ class DispatcherInterface:
 
         if is_asyncgener(local_dispatcher):
           now_dispatcher_generater = local_dispatcher(self).__aiter__()
-          alive_dispatchers.append(
-            (now_dispatcher_generater, True)
-          )
 
           try:
             result = await now_dispatcher_generater.__anext__()
           except StopAsyncIteration:
             continue
+          else:
+            alive_dispatchers.append(
+              (now_dispatcher_generater, True)
+            )
         elif isgeneratorfunction(local_dispatcher):
           now_dispatcher_generater = local_dispatcher(self).__iter__()
-          alive_dispatchers.append(
-            (now_dispatcher_generater, False)
-          )
 
           try:
             result = now_dispatcher_generater.__next__()
           except StopIteration as e:
             result = e.value
+          else:
+            alive_dispatchers.append(
+              (now_dispatcher_generater, False)
+            )
         else:
           result = await run_always_await(local_dispatcher(self))
 
