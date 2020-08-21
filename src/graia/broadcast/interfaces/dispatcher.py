@@ -14,6 +14,14 @@ def get_raw_dispatcher_callable(dispatcher: Any):
     return dispatcher
 
 class ContextStackItem:
+  dispatchers: List[BaseDispatcher]
+  event: BaseEvent
+
+  def __init__(self, dispatchers: List[BaseDispatcher], event: BaseEvent) -> None:
+    self.dispatchers = dispatchers
+    self.event = event
+
+class ExecuteContextStackItem:
   def __init__(self, name, annotation, default, local_dispatchers, optional=False, index=0) -> None:
     self.name, self.annotation, self.default, self.local_dispatchers, self.index = \
       name, annotation, default, local_dispatchers, index
@@ -40,52 +48,56 @@ class ContextStackItem:
 
 class DispatcherInterface:
   broadcast: "Broadcast"
-  event: Optional[BaseEvent] = None
-  dispatchers: List[BaseDispatcher]
 
-  context_stack: List[ContextStackItem] = [ContextStackItem(None, None, None, [], 0)]
+  execute_context_stack: List[ExecuteContextStackItem] =\
+    [ExecuteContextStackItem(None, None, None, [], 0)]
+  context_stack: List[ContextStackItem]
   alive_generater_dispatcher: List[
     List[Tuple[Union[Generator, AsyncGenerator], bool]]
     # True => async, False => sync
   ]
-  always_dispatchers: List[Union[BaseDispatcher, Callable]]
 
   @property
   def name(self):
-    return self.context_stack[-1].name
+    return self.execute_context_stack[-1].name
 
   @property
   def annotation(self):
-    return self.context_stack[-1].annotation
+    return self.execute_context_stack[-1].annotation
 
   @property
   def default(self):
-    return self.context_stack[-1].default
+    return self.execute_context_stack[-1].default
 
   @property
   def _index(self):
-    return self.context_stack[-1].index
+    return self.execute_context_stack[-1].index
 
   @_index.setter
   def _(self, new_value):
-    self.context_stack[-1].index = new_value
+    self.execute_context_stack[-1].index = new_value
 
   @property
   def local_dispatchers(self):
-    return self.context_stack[-1].local_dispatchers
+    return self.execute_context_stack[-1].local_dispatchers
+
+  @property
+  def dispatchers(self):
+    return self.context_stack[-1].dispatchers
   
+  @property
+  def event(self):
+    return self.context_stack[-1].event
+
   # dispatcher 允许任何值, 包括 Decorater, 只不过 Decorater Dispatcher 的优先级是隐式最高, 所以基本上不可能截获到.
 
-  def __init__(self,
-    broadcast_instance: "Broadcast",
-  ):
+  def __init__(self, broadcast_instance: "Broadcast"):
     self.broadcast = broadcast_instance
     self.alive_generater_dispatcher = [[]]
-    self.always_dispatchers = []
+    self.context_stack = []
   
   def enter_context(self, event: BaseEvent, dispatchers: List[BaseDispatcher]):
-    self.event = event
-    self.dispatchers = dispatchers
+    self.context_stack.append(ContextStackItem(dispatchers, event))
     for i in self.dispatchers[self._index:]:
       if getattr(i, "always", False):
         self.always_dispatcher.append(i)
@@ -97,15 +109,14 @@ class DispatcherInterface:
   async def __aexit__(self, _, exc, tb):
     await self.alive_dispatcher_killer()
     self.alive_generater_dispatcher.pop()
-    self.event = None
-    self.dispatchers = []
+    self.context_stack.pop()
 
     if tb is not None:
       raise exc
 
   def inject_local_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
     self.local_dispatchers.extend(dispatchers)
-    always_dispatchers = self.context_stack[-1].always_dispatchers
+    always_dispatchers = self.execute_context_stack[-1].always_dispatchers
 
     for i in dispatchers:
       if getattr(i, "always", False):
@@ -113,7 +124,7 @@ class DispatcherInterface:
 
   def inject_global_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
     self.dispatchers.extend(dispatchers)
-    always_dispatchers = self.context_stack[-1].always_dispatchers
+    always_dispatchers = self.execute_context_stack[-1].always_dispatchers
 
     for i in dispatchers:
       if getattr(i, "always", False):
@@ -129,16 +140,16 @@ class DispatcherInterface:
       else:
         raise TypeError("cannot parse this annotation: {0}".format(annotation))
 
-    self.context_stack.append(ContextStackItem(name, annotation, default, [], optional=optional))
+    self.execute_context_stack.append(ExecuteContextStackItem(name, annotation, default, [], optional=optional))
 
     alive_dispatchers = []
     self.alive_generater_dispatcher.append(alive_dispatchers)
     
-    always_dispatcher = self.context_stack[-1].always_dispatchers
+    always_dispatcher = self.execute_context_stack[-1].always_dispatchers
     
     result = None
     try:
-      for self.context_stack[-1].index, dispatcher in enumerate(
+      for self.execute_context_stack[-1].index, dispatcher in enumerate(
           self.dispatchers[self._index:], start=self._index):
         
         if getattr(dispatcher, "always", False):
@@ -224,7 +235,7 @@ class DispatcherInterface:
         else:
           await run_always_await(local_dispatcher(self))
 
-      self.context_stack.pop()
+      self.execute_context_stack.pop()
 
   async def alive_dispatcher_killer(self):
     for unbound_gen, is_async_gen in self.alive_generater_dispatcher[-1]:
