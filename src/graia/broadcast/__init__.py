@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import traceback
-from typing import Dict, Generator, List, NoReturn, Optional, Type, Union
+from typing import Dict, Generator, Hashable, List, NoReturn, Optional, Type, Union
 import types
 
 from iterwrapper import IterWrapper as iw
@@ -176,20 +176,14 @@ class Broadcast:
             event=protocol.event
           ))
         raise
-
-      if isgenerator(result) or isasyncgen(result):
-        dii.alive_generater_dispatcher[-1].append(
-          (result)
-        )
-        result = await whatever_gen_once(result)
       
-      if isgenerator(result):
+      if [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result):
         try: result = next(result)
         except StopIteration as e: result = e.value
         else: dii.alive_generater_dispatcher[-1].append(
           (result, False)
         )
-      elif isasyncgen(result):
+      elif [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result):
         try: result = await result.__anext__()
         except StopAsyncIteration: return # value = None
         else: dii.alive_generater_dispatcher[-1].append(

@@ -1,7 +1,7 @@
 from graia.broadcast.utilles import isasyncgen, iscoroutinefunction, isgenerator
 from ..entities.decorater import Decorater
 from ..protocols.executor import ExecutorProtocol
-from typing import Callable, ContextManager, Any, Optional
+from typing import Callable, ContextManager, Any, Hashable
 from ..entities.signatures import Force
 from ..interfaces.decorater import DecoraterInterface
 import inspect
@@ -30,13 +30,14 @@ class Depend(Decorater):
             event=interface.event,
             hasReferrer=True
         ))
-        if isasyncgen(result) or\
-            (isgenerator(result) and \
-              not iscoroutinefunction(self.depend_callable)):
-            if isgenerator(result):
+
+        result_is_asyncgen = [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result)
+        result_is_generator = [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result)
+        if result_is_asyncgen or (result_is_generator and not iscoroutinefunction(self.depend_callable)):
+            if result_is_generator(result):
                 for i in result:
                     yield Force(i)
-            elif isasyncgen(result):
+            elif result_is_asyncgen(result):
                 async for i in result:
                     yield Force(i)
         else:

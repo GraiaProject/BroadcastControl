@@ -14,6 +14,8 @@ def get_raw_dispatcher_callable(dispatcher: Any):
     return dispatcher
 
 class ContextStackItem:
+  __slots__ = ("dispatchers", "event")
+
   dispatchers: List[BaseDispatcher]
   event: BaseEvent
 
@@ -46,11 +48,14 @@ class ExecuteContextStackItem:
   # 即 无论如何都会被激活至少 1 次的 Dispatchers.
   always_dispatchers: List[Union[BaseDispatcher, Callable]]
 
+  __slots__ = ("name", "annotation", "default", "local_dispatchers", "optional", "index", "always_dispatchers")
+
 class DispatcherInterface:
+  __slots__ = ("broadcast", "execute_context_stack", "context_stack", "alive_generater_dispatcher")
+
   broadcast: "Broadcast"
 
-  execute_context_stack: List[ExecuteContextStackItem] =\
-    [ExecuteContextStackItem(None, None, None, [], 0)]
+  execute_context_stack: List[ExecuteContextStackItem]
   context_stack: List[ContextStackItem]
   alive_generater_dispatcher: List[
     List[Tuple[Union[Generator, AsyncGenerator], bool]]
@@ -95,6 +100,8 @@ class DispatcherInterface:
     self.broadcast = broadcast_instance
     self.alive_generater_dispatcher = [[]]
     self.context_stack = []
+    self.execute_context_stack =\
+      [ExecuteContextStackItem(None, None, None, [], 0)]
   
   def enter_context(self, event: BaseEvent, dispatchers: List[BaseDispatcher]):
     self.context_stack.append(ContextStackItem(dispatchers, event))
@@ -107,8 +114,9 @@ class DispatcherInterface:
     return self
 
   async def __aexit__(self, _, exc, tb):
-    await self.alive_dispatcher_killer()
-    self.alive_generater_dispatcher.pop()
+    if len(self.alive_generater_dispatcher) != 0:
+      await self.alive_dispatcher_killer()
+      self.alive_generater_dispatcher.pop()
     self.context_stack.pop()
 
     if tb is not None:

@@ -42,8 +42,7 @@ event = TestEvent()
 loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop, debug_flag=True)
 
-@broadcast.receiver("TestEvent")
-async def test(u):
+def test():
     pass
 
 #broadcast.postEvent(TestEvent())
@@ -58,4 +57,4 @@ task = asyncio.gather(*[
     )) for _ in range(40000)
 ])
 
-runner.run(loop.run_until_complete, "p", args=(task,), host="localhost", port=8000)
+runner.run(loop.run_until_complete, "pm", args=(task,), host="localhost", port=8000)
