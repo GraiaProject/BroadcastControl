@@ -56,5 +56,4 @@ task = asyncio.gather(*[
         event=TestEvent()
     )) for _ in range(40000)
 ])
-
-runner.run(loop.run_until_complete, "pm", args=(task,), host="localhost", port=8000)
+#runner.run(loop.run_until_complete, "pm", args=(task,), host="localhost", port=8000)

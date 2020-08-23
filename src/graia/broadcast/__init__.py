@@ -6,7 +6,6 @@ import types
 
 from iterwrapper import IterWrapper as iw
 
-from .builtin.dispatchers import MappingRule, SimpleMapping
 from .builtin.event import ExceptionThrowed
 from .entities.decorater import Decorater
 from .entities.dispatcher import BaseDispatcher
@@ -22,9 +21,8 @@ from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .protocols.executor import ExecutorProtocol
-from .utilles import (argument_signature, dispatcher_mixin_handler, group_dict, isasyncgen, isgenerator, run_always_await,
-                      whatever_gen_once)
-
+from .utilles import (argument_signature, dispatcher_mixin_handler, group_dict, isasyncgen, isgenerator, run_always_await)
+from .zone import Zone
 
 class Broadcast:
   loop: asyncio.AbstractEventLoop
@@ -279,6 +277,12 @@ class Broadcast:
 
   def removeListener(self, target):
     self.listeners.remove(target)
+
+  def includeZone(self, target_zone: Zone):
+    if self.containNamespace(Zone.namespace.name):
+      raise ValueError("the zone cannot import because its name has been used.")
+    self.namespaces.append(target_zone.namespace)
+    self.listeners.extend(target_zone.listeners)
 
   def receiver(self,
       event: Union[str, Type[BaseEvent]],
