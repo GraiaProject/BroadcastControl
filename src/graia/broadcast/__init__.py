@@ -75,15 +75,16 @@ class Broadcast:
       if break_flag:
         break
       current_group = grouped[current_priority]
-      tasks, _ = await asyncio.wait([
-        self.Executor(ExecutorProtocol(
-          target=i,
-          event=event
-        )) for i in current_group
-      ])
-      for i in list(tasks):
-        if isinstance(i.exception(), PropagationCancelled):
-          break_flag = True
+      try:
+        await asyncio.gather(*[
+          self.Executor(ExecutorProtocol(
+            target=i,
+            event=event
+          )) for i in current_group
+        ])
+      except Exception as e:
+        if isinstance(e, PropagationCancelled):
+          break
 
   async def Executor(self, protocol: ExecutorProtocol):
     is_listener = isinstance(protocol.target, Listener)

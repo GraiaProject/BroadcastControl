@@ -42,18 +42,23 @@ event = TestEvent()
 loop = asyncio.get_event_loop()
 broadcast = Broadcast(loop=loop, debug_flag=True)
 
+
+@broadcast.receiver(TestEvent)
 def test():
     pass
 
-#broadcast.postEvent(TestEvent())
-#loop.run_forever()
+async def main():
+    print("将在 10 s 后开始测试.")
+    for i in range(1, 11):
+        print(i)
+        await asyncio.sleep(1)
+    print("测试开始.")
+    for _ in range(100000):
+        broadcast.postEvent(TestEvent())
+    print("事件广播完毕, 总共 10w 个")
 
-from vprof import runner
+loop.run_until_complete(main())
 
-task = asyncio.gather(*[
-    broadcast.Executor(ExecutorProtocol(
-        target=test,
-        event=TestEvent()
-    )) for _ in range(40000)
-])
-#runner.run(loop.run_until_complete, "pm", args=(task,), host="localhost", port=8000)
+print("测试结束, 5s 后退出")
+loop.run_until_complete(asyncio.sleep(5))
+print("退出....")
