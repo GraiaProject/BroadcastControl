@@ -47,18 +47,21 @@ broadcast = Broadcast(loop=loop, debug_flag=True)
 def test():
     pass
 
-async def main():
+async def main(start):
     print("将在 10 s 后开始测试.")
     for i in range(1, 11):
         print(i)
         await asyncio.sleep(1)
-    print("测试开始.")
+    print("测试开始.", start)
     for _ in range(100000):
         broadcast.postEvent(TestEvent())
-    print("事件广播完毕, 总共 10w 个")
+    end = time.time()
+    print(f"事件广播完毕, 总共 10w 个, 当前时间: {end}, 用时: {end - start - 10}")
 
-loop.run_until_complete(main())
+start = time.time()
+loop.run_until_complete(main(start))
 
-print("测试结束, 5s 后退出")
-loop.run_until_complete(asyncio.sleep(5))
+end = time.time()
+print(f"测试结束, 20s 后退出, 用时 {end - start - 10}")
+loop.run_until_complete(asyncio.sleep(20))
 print("退出....")

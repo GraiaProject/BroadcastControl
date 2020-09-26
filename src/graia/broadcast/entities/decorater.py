@@ -1,8 +1,5 @@
 from typing import Any, Callable
 
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
-
-
 class Decorater:
     target: Callable[[Any], Any]
     pre: bool = False

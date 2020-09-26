@@ -1,6 +1,5 @@
 from graia.broadcast.utilles import isasyncgen, iscoroutinefunction, isgenerator
 from ..entities.decorater import Decorater
-from ..protocols.executor import ExecutorProtocol
 from typing import Callable, ContextManager, Any, Hashable
 from ..entities.signatures import Force
 from ..interfaces.decorater import DecoraterInterface
@@ -25,11 +24,11 @@ class Depend(Decorater):
             if attempt:
                 yield Force(attempt)
                 return
-        result = await interface.dispatcher_interface.broadcast.Executor(ExecutorProtocol(
+        result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
             event=interface.event,
             hasReferrer=True
-        ))
+        )
 
         result_is_asyncgen = [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result)
         result_is_generator = [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result)
