@@ -117,7 +117,7 @@ class Broadcast:
     parameter_compile_result = {}
 
     async with self.dispatcher_interface.enter_context(event, _dispatchers) as dii:
-      if (not dii.dispatchers) or type(dii.dispatchers[0]) is not DecoraterInterface:
+      if (not dii.dispatchers) or type(dii.dispatchers[0]) is not DecoraterInterface: # 理论上只会注入一次.
         DecoraterInterface(dii)  # pylint: disable=unused-variable
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
@@ -140,7 +140,7 @@ class Broadcast:
         if injection_rule.check(event, dii):
           dii.dispatchers.insert(1, injection_rule.target_dispatcher)
 
-      @dii.inject_global_dispatcher
+      @dii.inject_execute_dispatcher
       def _(interface: DispatcherInterface):
         if interface.annotation is event.__class__:
           return event

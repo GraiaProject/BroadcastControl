@@ -52,7 +52,7 @@ class ExecuteContextStackItem:
   __slots__ = ("name", "annotation", "default", "local_dispatchers", "optional", "always_dispatchers")
 
 class DispatcherInterface:
-  __slots__ = ("broadcast", "execute_context_stack", "context_stack", "alive_generater_dispatcher")
+  __slots__ = ("broadcast", "execute_context_stack", "context_stack", "alive_generater_dispatcher", "global_dispatchers")
 
   broadcast: "Broadcast"
 
@@ -62,6 +62,7 @@ class DispatcherInterface:
     List[Tuple[Union[Generator, AsyncGenerator], bool]]
     # True => async, False => sync
   ]
+  global_dispatchers: List[Union[BaseDispatcher, Callable]]
 
   @property
   def name(self):
@@ -79,17 +80,13 @@ class DispatcherInterface:
   def _index(self):
     return self.context_stack[-1]._index
 
-  @_index.setter
-  def _(self, new_value):
-    self.context_stack[-1]._index = new_value
-
   @property
   def local_dispatchers(self):
     return self.execute_context_stack[-1].local_dispatchers
 
   @property
   def dispatchers(self):
-    return self.context_stack[-1].dispatchers
+    return self.global_dispatchers + self.context_stack[-1].dispatchers + self.execute_context_stack[-1].local_dispatchers
   
   @property
   def event(self):
@@ -103,6 +100,7 @@ class DispatcherInterface:
     self.context_stack = []
     self.execute_context_stack =\
       [ExecuteContextStackItem(None, None, None, [])]
+    self.global_dispatchers = []
   
   def enter_context(self, event: BaseEvent, dispatchers: List[BaseDispatcher]):
     self.context_stack.append(ContextStackItem(dispatchers, event))
@@ -133,7 +131,17 @@ class DispatcherInterface:
       raise exc
 
   def inject_local_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
-    self.local_dispatchers.extend(dispatchers)
+    for dispatcher in dispatchers[::-1]:
+      self.execute_context_stack[-1].local_dispatchers.insert(0, dispatcher)
+    always_dispatchers = self.execute_context_stack[-1].always_dispatchers
+
+    for i in dispatchers:
+      if getattr(i, "always", False):
+        always_dispatchers.append(i)
+
+  def inject_execute_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
+    for dispatcher in dispatchers:
+      self.context_stack[-1].dispatchers.insert(0, dispatcher)
     always_dispatchers = self.execute_context_stack[-1].always_dispatchers
 
     for i in dispatchers:
@@ -141,7 +149,9 @@ class DispatcherInterface:
         always_dispatchers.append(i)
 
   def inject_global_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
-    self.dispatchers.extend(dispatchers)
+    #self.dispatchers.extend(dispatchers)
+    for dispatcher in dispatchers[::-1]:
+      self.global_dispatchers.insert(0, dispatcher)
     always_dispatchers = self.execute_context_stack[-1].always_dispatchers
 
     for i in dispatchers:

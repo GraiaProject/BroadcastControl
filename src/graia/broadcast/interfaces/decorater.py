@@ -16,7 +16,7 @@ class DecoraterInterface:
 
     def __init__(self, dispatcher_interface: DispatcherInterface):
         self.dispatcher_interface = dispatcher_interface
-        self.dispatcher_interface.dispatchers.insert(0, self.decorater_dispatcher)
+        self.dispatcher_interface.inject_global_dispatcher(self.decorater_dispatcher)
 
     @property
     def name(self):
