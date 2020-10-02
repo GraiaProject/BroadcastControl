@@ -14,19 +14,21 @@ def get_raw_dispatcher_callable(dispatcher: Any):
     return dispatcher
 
 class ContextStackItem:
-  __slots__ = ("dispatchers", "event")
+  __slots__ = ("dispatchers", "event", "_index")
 
   dispatchers: List[BaseDispatcher]
   event: BaseEvent
+  _index: int
 
   def __init__(self, dispatchers: List[BaseDispatcher], event: BaseEvent) -> None:
     self.dispatchers = dispatchers
     self.event = event
+    self._index = 0
 
 class ExecuteContextStackItem:
-  def __init__(self, name, annotation, default, local_dispatchers, optional=False, index=0) -> None:
-    self.name, self.annotation, self.default, self.local_dispatchers, self.index = \
-      name, annotation, default, local_dispatchers, index
+  def __init__(self, name, annotation, default, local_dispatchers, optional=False) -> None:
+    self.name, self.annotation, self.default, self.local_dispatchers = \
+      name, annotation, default, local_dispatchers
     self.optional = optional
     self.always_dispatchers = []
     for i in local_dispatchers:
@@ -34,21 +36,20 @@ class ExecuteContextStackItem:
         self.always_dispatchers.append(i)
   
   def __repr__(self) -> str:
-    return "<ContextStackItem name={0} annotation={1} default={2} locald={3} index={4}>"\
+    return "<ContextStackItem name={0} annotation={1} default={2} locald={3}"\
       .format(
-        self.name, self.annotation, self.default, self.local_dispatchers, self.index)
+        self.name, self.annotation, self.default, self.local_dispatchers)
 
   name: str
   annotation: Any
   default: Any
   local_dispatchers: List[Union[BaseDispatcher, Callable]]
   optional: bool
-  index: int
 
   # 即 无论如何都会被激活至少 1 次的 Dispatchers.
   always_dispatchers: List[Union[BaseDispatcher, Callable]]
 
-  __slots__ = ("name", "annotation", "default", "local_dispatchers", "optional", "index", "always_dispatchers")
+  __slots__ = ("name", "annotation", "default", "local_dispatchers", "optional", "always_dispatchers")
 
 class DispatcherInterface:
   __slots__ = ("broadcast", "execute_context_stack", "context_stack", "alive_generater_dispatcher")
@@ -76,11 +77,11 @@ class DispatcherInterface:
 
   @property
   def _index(self):
-    return self.execute_context_stack[-1].index
+    return self.context_stack[-1]._index
 
   @_index.setter
   def _(self, new_value):
-    self.execute_context_stack[-1].index = new_value
+    self.context_stack[-1]._index = new_value
 
   @property
   def local_dispatchers(self):
@@ -101,7 +102,7 @@ class DispatcherInterface:
     self.alive_generater_dispatcher = [[]]
     self.context_stack = []
     self.execute_context_stack =\
-      [ExecuteContextStackItem(None, None, None, [], 0)]
+      [ExecuteContextStackItem(None, None, None, [])]
   
   def enter_context(self, event: BaseEvent, dispatchers: List[BaseDispatcher]):
     self.context_stack.append(ContextStackItem(dispatchers, event))
@@ -117,6 +118,15 @@ class DispatcherInterface:
     if len(self.alive_generater_dispatcher) != 0:
       await self.alive_dispatcher_killer()
       self.alive_generater_dispatcher.pop()
+
+    for i in self.dispatchers:
+      after_execute_call = getattr(i, "after_execute", None)
+      if callable(after_execute_call):
+        try:
+          await run_always_await(after_execute_call())
+        except:
+          pass
+
     self.context_stack.pop()
 
     if tb is not None:
@@ -157,8 +167,9 @@ class DispatcherInterface:
     
     result = None
     try:
-      for self.execute_context_stack[-1].index, dispatcher in enumerate(
-          self.dispatchers[self._index:], start=self._index):
+      for self.context_stack[-1]._index, dispatcher in enumerate(
+          self.dispatchers[self._index+1:],
+          start=self._index+1):
         
         if getattr(dispatcher, "always", False):
           try: always_dispatcher.remove(dispatcher)
@@ -172,7 +183,7 @@ class DispatcherInterface:
           local_dispatcher = dispatcher
         else:
           raise ValueError("invaild dispatcher: ", dispatcher)
-
+      
         if is_asyncgener(local_dispatcher):
           now_dispatcher_generater = local_dispatcher(self).__aiter__()
 
@@ -204,9 +215,11 @@ class DispatcherInterface:
         if result.__class__ is Force:
           result = result.target
 
+        self.context_stack[-1]._index = 0
         return result
       else:
         if optional:
+          self.context_stack[-1]._index = 0
           return None
         raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
     finally: # 在某种程度上, 这算 BCC 内的第二个 "无头充数" 的设计了.
