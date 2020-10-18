@@ -14,15 +14,17 @@ def get_raw_dispatcher_callable(dispatcher: Any):
     return dispatcher
 
 class ContextStackItem:
-  __slots__ = ("dispatchers", "event", "_index")
+  __slots__ = ("dispatchers", "event", "inline_generator", "_index")
 
   dispatchers: List[BaseDispatcher]
   event: BaseEvent
+  inline_generator: bool
   _index: int
 
-  def __init__(self, dispatchers: List[BaseDispatcher], event: BaseEvent) -> None:
+  def __init__(self, dispatchers: List[BaseDispatcher], event: BaseEvent, inline_generator: bool = False) -> None:
     self.dispatchers = dispatchers
     self.event = event
+    self.inline_generator = inline_generator
     self._index = 0
 
 class ExecuteContextStackItem:
@@ -102,20 +104,27 @@ class DispatcherInterface:
       [ExecuteContextStackItem(None, None, None, [])]
     self.global_dispatchers = []
   
-  def enter_context(self, event: BaseEvent, dispatchers: List[BaseDispatcher]):
-    self.context_stack.append(ContextStackItem(dispatchers, event))
+  def enter_context(self, event: BaseEvent, dispatchers: List[BaseDispatcher], use_inline_generator: bool = False):
+    self.context_stack.append(ContextStackItem(dispatchers, event, use_inline_generator))
     for i in self.dispatchers[self._index:]:
       if getattr(i, "always", False):
         self.always_dispatcher.append(i)
     return self
 
   async def __aenter__(self) -> "DispatcherInterface":
+    self.alive_generater_dispatcher.append([])
     return self
 
   async def __aexit__(self, _, exc, tb):
-    if len(self.alive_generater_dispatcher) != 0:
-      await self.alive_dispatcher_killer()
-      self.alive_generater_dispatcher.pop()
+    if self.alive_generater_dispatcher[-1]:
+      if self.context_stack[-1].inline_generator:
+        if len(self.alive_generater_dispatcher) > 2: # 防止插入到保护区
+          self.alive_generater_dispatcher[-2].extend(self.alive_generater_dispatcher[-1])
+        else:
+          raise ValueError("cannot cast to inline")
+      else:
+        await self.alive_dispatcher_killer()
+    self.alive_generater_dispatcher.pop()
 
     for i in self.dispatchers:
       after_execute_call = getattr(i, "after_execute", None)
@@ -170,9 +179,8 @@ class DispatcherInterface:
 
     self.execute_context_stack.append(ExecuteContextStackItem(name, annotation, default, [], optional=optional))
 
-    alive_dispatchers = []
-    self.alive_generater_dispatcher.append(alive_dispatchers)
-    
+    alive_dispatchers = self.alive_generater_dispatcher[-1]
+
     always_dispatcher = self.execute_context_stack[-1].always_dispatchers
     
     result = None

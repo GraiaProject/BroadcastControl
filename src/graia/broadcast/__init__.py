@@ -22,6 +22,7 @@ from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .utilles import (argument_signature, dispatcher_mixin_handler, group_dict, isasyncgen, isgenerator, run_always_await)
 from .zone import Zone
+from .utilles import printer
 
 class Broadcast:
   loop: asyncio.AbstractEventLoop
@@ -94,7 +95,8 @@ class Broadcast:
       BaseDispatcher,
     ]] = None,
     hasReferrer: bool = False,
-    enableInternalAccess: bool = False
+    enableInternalAccess: bool = False,
+    use_inline_generator: bool = False
   ):
     is_listener = isinstance(target, Listener)
 
@@ -116,7 +118,7 @@ class Broadcast:
     target_callable = target.callable if is_listener else target
     parameter_compile_result = {}
 
-    async with self.dispatcher_interface.enter_context(event, _dispatchers) as dii:
+    async with self.dispatcher_interface.enter_context(event, _dispatchers, use_inline_generator) as dii:
       if (not dii.dispatchers) or type(dii.dispatchers[0]) is not DecoraterInterface: # 理论上只会注入一次.
         DecoraterInterface(dii)  # pylint: disable=unused-variable
       # Decorater 的 Dispatcher 已经注入, 没他事了
@@ -184,17 +186,20 @@ class Broadcast:
           ))
         raise
       
+      gener = None
       if [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result):
-        try: result = next(result)
+        gener = result
+        try: result = next(gener)
         except StopIteration as e: result = e.value
         else: dii.alive_generater_dispatcher[-1].append(
-          (result, False)
+          (gener, False)
         )
       elif [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result):
-        try: result = await result.__anext__()
+        gener = result
+        try: result = await gener.__anext__()
         except StopAsyncIteration: return # value = None
         else: dii.alive_generater_dispatcher[-1].append(
-          (result, True)
+          (gener, True)
         )
 
       if result.__class__ is Force:

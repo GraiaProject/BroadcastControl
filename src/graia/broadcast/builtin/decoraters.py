@@ -27,7 +27,8 @@ class Depend(Decorater):
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
             event=interface.event,
-            hasReferrer=True
+            hasReferrer=True,
+            use_inline_generator=True
         )
 
         result_is_asyncgen = [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result)
