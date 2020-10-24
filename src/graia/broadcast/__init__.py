@@ -1,8 +1,8 @@
 import asyncio
 import inspect
 import traceback
-from typing import Callable, Dict, Generator, Hashable, List, NoReturn, Optional, Type, Union
-import types
+from typing import (Callable, Dict, Generator, Hashable, List, NoReturn,
+                    Optional, Type, Union)
 
 from iterwrapper import IterWrapper as iw
 
@@ -20,9 +20,10 @@ from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
                          UnexistedNamespace)
 from .interfaces.decorater import DecoraterInterface
 from .interfaces.dispatcher import DispatcherInterface
-from .utilles import (argument_signature, dispatcher_mixin_handler, group_dict, isasyncgen, isgenerator, run_always_await)
+from .utilles import (argument_signature, dispatcher_mixin_handler, group_dict,
+                      isasyncgen, isgenerator, run_always_await_safely)
 from .zone import Zone
-from .utilles import printer
+
 
 class Broadcast:
   loop: asyncio.AbstractEventLoop
@@ -48,6 +49,11 @@ class Broadcast:
     self.listeners = []
     self.dispatcher_inject_rules = inject_rules or []
     self.dispatcher_interface = DispatcherInterface(self)
+
+    @self.dispatcher_interface.inject_global_dispatcher
+    def _(interface: DispatcherInterface):
+      if interface.annotation is interface.event.__class__:
+        return interface.event
   
   def default_listener_generator(self, event_class) -> Listener:
     yield from (iw(self.listeners)
@@ -70,10 +76,7 @@ class Broadcast:
     event: BaseEvent
   ):
     grouped: Dict[int, List[Listener]] = group_dict(listener_generator, lambda x: x.priority)
-    break_flag = False
     for current_priority in sorted(grouped.keys()):
-      if break_flag:
-        break
       current_group = grouped[current_priority]
       try:
         await asyncio.gather(*[
@@ -119,8 +122,10 @@ class Broadcast:
     parameter_compile_result = {}
 
     async with self.dispatcher_interface.enter_context(event, _dispatchers, use_inline_generator) as dii:
-      if (not dii.dispatchers) or type(dii.dispatchers[0]) is not DecoraterInterface: # 理论上只会注入一次.
-        DecoraterInterface(dii)  # pylint: disable=unused-variable
+      cached_dispatchers = list(dii.dispatchers)
+      if (not cached_dispatchers) or not isinstance(cached_dispatchers[0], DecoraterInterface): # 理论上只会注入一次.
+        dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
+        self.dispatcher_interface.execution_contexts[0].dispatchers.insert(0, dei)
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
       if enableInternalAccess or \
@@ -140,12 +145,7 @@ class Broadcast:
 
       for injection_rule in self.dispatcher_inject_rules:
         if injection_rule.check(event, dii):
-          dii.dispatchers.insert(1, injection_rule.target_dispatcher)
-
-      @dii.inject_execute_dispatcher
-      def _(interface: DispatcherInterface):
-        if interface.annotation is event.__class__:
-          return event
+          dii.execution_contexts[-1].dispatchers.insert(1, injection_rule.target_dispatcher)
 
       try:
         for name, annotation, default in argument_signature(target_callable):
@@ -170,9 +170,9 @@ class Broadcast:
         raise
 
       try:
-        result = await run_always_await(
-          target_callable(**parameter_compile_result)
-        )
+        result = await asyncio.ensure_future(run_always_await_safely(
+          target_callable, **parameter_compile_result
+        ))
       except ExecutionStop:
         raise # 直接抛出.
       except PropagationCancelled:

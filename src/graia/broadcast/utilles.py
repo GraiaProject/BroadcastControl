@@ -1,15 +1,23 @@
 import inspect
-from typing import Any, Callable, List
+import itertools
+from functools import lru_cache
+from typing import Any, Callable, List, Union
 
 from iterwrapper import IterWrapper
-from functools import lru_cache
+
 from .entities.dispatcher import BaseDispatcher
+
 
 async def run_always_await(any_callable):
     if inspect.iscoroutine(any_callable):
         return await any_callable
     else:
         return any_callable
+
+async def run_always_await_safely(callable, *args, **kwargs):
+    if iscoroutinefunction(callable):
+        return await callable(*args, **kwargs)
+    return callable(*args, **kwargs)
 
 def printer(value):
     print(value)
@@ -87,3 +95,16 @@ def dispatcher_mixin_handler(dispatcher: BaseDispatcher) -> List[BaseDispatcher]
         else:
             result.append(i)
     return result
+
+class as_sliceable:
+    def __init__(self, iterable) -> None:
+        self.iterable = iterable
+    
+    def __getitem__(self, item: Union[slice, int]) -> Any:
+        if isinstance(item, slice):
+            return itertools.islice(self.iterable, item.start, item.stop, item.step)
+        else:
+            return list(itertools.islice(self.iterable, item, item+1, None))[0]
+    
+    def __iter__(self):
+        return self.iterable

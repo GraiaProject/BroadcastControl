@@ -9,10 +9,13 @@ from graia.broadcast.builtin.decoraters import Depend, Middleware
 from graia.broadcast.interfaces.decorater import DecoraterInterface
 from graia.broadcast.exceptions import PropagationCancelled
 import random
-from typing import Optional
 from devtools import debug
 import asyncio
 import time
+import objgraph
+
+#print(objgraph.most_common_types(20))
+
 class D1(BaseDispatcher):
     @staticmethod
     def catch(interface: DispatcherInterface):
@@ -40,6 +43,7 @@ class TestEvent(BaseEvent):
 
 event = TestEvent()
 loop = asyncio.get_event_loop()
+#loop.set_debug(True)
 broadcast = Broadcast(loop=loop, debug_flag=True)
 
 
@@ -48,20 +52,27 @@ def test():
     pass
 
 async def main(start):
-    print("将在 10 s 后开始测试.")
-    for i in range(1, 11):
+    print("将在 5 s 后开始测试.")
+    for i in range(1, 6):
         print(i)
         await asyncio.sleep(1)
     print("测试开始.", start)
     for _ in range(100000):
         broadcast.postEvent(TestEvent())
     end = time.time()
-    print(f"事件广播完毕, 总共 10w 个, 当前时间: {end}, 用时: {end - start - 10}")
+    print(f"事件广播完毕, 总共 10w 个, 当前时间: {end}, 用时: {end - start - 5}")
 
 start = time.time()
 loop.run_until_complete(main(start))
 
 end = time.time()
-print(f"测试结束, 20s 后退出, 用时 {end - start - 10}")
-loop.run_until_complete(asyncio.sleep(20))
-print("退出....")
+print(f"测试结束, 15s 后退出, 用时 {end - start - 5}")
+loop.run_until_complete(asyncio.sleep(15))
+import objgraph
+#print(objgraph.most_common_types(20))
+#import pdb; pdb.set_trace()
+#print(broadcast.dispatcher_interface.execution_contexts[0].dispatchers)
+dii = objgraph.by_type("DecoraterInterface")
+print(len(dii))
+#import pdb; pdb.set_trace()
+print("退出....", time.time() - start)
