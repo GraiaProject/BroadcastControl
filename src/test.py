@@ -13,6 +13,7 @@ from devtools import debug
 import asyncio
 import time
 import objgraph
+import copy
 
 #print(objgraph.most_common_types(20))
 
@@ -46,10 +47,19 @@ loop = asyncio.get_event_loop()
 #loop.set_debug(True)
 broadcast = Broadcast(loop=loop, debug_flag=True)
 
+i = 0
+l = asyncio.Lock()
 
-@broadcast.receiver(TestEvent)
-def test():
-    pass
+#@broadcast.receiver(TestEvent)
+async def r():
+    global i
+    async with l:
+        i += 1
+
+for _ in range(100):
+    @broadcast.receiver(TestEvent, headless_decoraters=[Depend(r), Depend(r)])
+    def test():
+        pass
 
 async def main(start):
     print("将在 5 s 后开始测试.")
@@ -57,10 +67,10 @@ async def main(start):
         print(i)
         await asyncio.sleep(1)
     print("测试开始.", start)
-    for _ in range(100000):
+    for _ in range(10):
         broadcast.postEvent(TestEvent())
     end = time.time()
-    print(f"事件广播完毕, 总共 10w 个, 当前时间: {end}, 用时: {end - start - 5}")
+    print(f"事件广播完毕, 总共 10 个, 当前时间: {end}, 用时: {end - start - 5}")
 
 start = time.time()
 loop.run_until_complete(main(start))
@@ -74,5 +84,7 @@ import objgraph
 #print(broadcast.dispatcher_interface.execution_contexts[0].dispatchers)
 dii = objgraph.by_type("DecoraterInterface")
 print(len(dii))
+
+print(i)
 #import pdb; pdb.set_trace()
 print("退出....", time.time() - start)

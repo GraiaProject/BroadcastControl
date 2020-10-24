@@ -196,8 +196,8 @@ class DispatcherInterface:
     result = None
     try:
       for self.execution_contexts[-1]._index, dispatcher in enumerate(
-          self.dispatchers[self._index+1:],
-          start=self._index+1):
+          self.dispatchers[self._index+int(bool(self._index)):],
+          start=self._index+int(bool(self._index))):
         
         if getattr(dispatcher, "always", False) and dispatcher in always_dispatcher: # 你永远不知道需求有多复杂.
           always_dispatcher.remove(dispatcher)
