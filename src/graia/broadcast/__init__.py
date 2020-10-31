@@ -112,8 +112,9 @@ class Broadcast:
     from .builtin.event import ExceptionThrowed
 
     is_exectarget = isinstance(target, ExecTarget)
+    is_listener = isinstance(target, Listener)
 
-    if isinstance(target, Listener):
+    if is_listener:
       if target.namespace.disabled:
         raise DisabledNamespace("catched a disabled namespace: {0}".format(target.namespace.name))
     
@@ -128,8 +129,9 @@ class Broadcast:
     if is_exectarget:
       if target.inline_dispatchers:
         _dispatchers = target.inline_dispatchers + _dispatchers
-      if target.namespace.injected_dispatchers:
-        _dispatchers = target.namespace.injected_dispatchers + _dispatchers
+      if is_listener:
+        if target.namespace.injected_dispatchers:
+          _dispatchers = target.namespace.injected_dispatchers + _dispatchers
     if dispatchers:
       _dispatchers = dispatchers + _dispatchers
 
@@ -166,7 +168,10 @@ class Broadcast:
         if injection_rule.check(event, dii):
           dii.execution_contexts[-1].dispatchers.insert(1, injection_rule.target_dispatcher)
 
-      whole_statistics: Dict[str, Dict[T_Dispatcher, Tuple[int, int]]] = target.dispatcher_statistics['statistics']
+      if is_exectarget:
+        whole_statistics: Dict[str, Dict[T_Dispatcher, Tuple[int, int]]] = target.dispatcher_statistics['statistics']
+      else:
+        whole_statistics = {}
       try:
         for name, annotation, default in argument_signature(target_callable):
           statistics: Dict[T_Dispatcher, Tuple[int, int]] = whole_statistics.setdefault(name, {})
@@ -226,7 +231,7 @@ class Broadcast:
             parameter_compile_result[name] =\
               await dii.lookup_param(name, annotation, default)
         if is_exectarget:
-          if target.headless_decoraters: # 无头装饰器
+          if target.headless_decoraters:
             for hl_d in target.headless_decoraters:
               await dii.lookup_param(None, None, hl_d)
       except ExecutionStop:

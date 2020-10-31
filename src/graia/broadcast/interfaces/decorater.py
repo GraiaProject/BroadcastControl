@@ -37,7 +37,7 @@ class DecoraterInterface(BaseDispatcher):
             decorater: Decorater = interface.default
             if not decorater.pre:
                 # 作为 装饰
-                self.return_value = await interface.execute_with(interface.name, interface.annotation, None)
+                self.return_value = await interface.lookup_param(interface.name, interface.annotation, None)
             try:
                 # 这里隐式的复用了 dispatcher interface 的生成器终结者机制
                 if is_asyncgener(decorater.target):

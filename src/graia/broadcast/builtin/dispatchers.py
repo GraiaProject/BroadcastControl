@@ -20,7 +20,7 @@ def Hook(condition, fixer):
         @staticmethod
         def catch(interface: IDispatcherInterface):
             if condition(interface):
-                return fixer(interface.execute_with(
+                return fixer(interface.lookup_param(
                     interface.name,
                     interface.annotation,
                     interface.default
