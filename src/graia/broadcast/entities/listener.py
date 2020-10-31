@@ -5,7 +5,9 @@ from .event import BaseEvent
 from .namespace import Namespace
 from .decorater import Decorater
 
-class Listener:
+from .exectarget import ExecTarget
+
+class Listener(ExecTarget):
     def __init__(self,
         callable: Callable,
         namespace: Namespace,
@@ -15,18 +17,11 @@ class Listener:
         priority: int = 16,
         enable_internal_access: bool = False,
     ) -> None:
-        self.callable = callable
+        super().__init__(callable, inline_dispatchers, headless_decoraters, enable_internal_access)
         self.namespace = namespace
         self.listening_events = listening_events
-        self.inline_dispatchers = inline_dispatchers or []
-        self.headless_decoraters = headless_decoraters or []
         self.priority = priority
-        self.enable_internal_access = enable_internal_access
 
-    callable: Callable
     namespace: Namespace
     listening_events: List[Type[BaseEvent]]
-    inline_dispatchers: List[BaseDispatcher] = []
-    headless_decoraters: List[Decorater] = []
     priority: int = 16
-    enable_internal_access: bool = False

@@ -6,18 +6,18 @@ from ..entities.decorater import Decorater
 from ..entities.signatures import Force
 from ..utilles import (is_asyncgener, iscoroutinefunction, isgeneratorfunction,
                        run_always_await_safely)
-from .dispatcher import DispatcherInterface
+from ..abstract.interfaces.dispatcher import IDispatcherInterface
 
 
 class DecoraterInterface(BaseDispatcher):
     """Graia Broadcast Control 内部机制 Decorate 的具体管理实现
     """
-    dispatcher_interface: DispatcherInterface
+    dispatcher_interface: IDispatcherInterface
     local_storage: Dict[Any, Any] = {}
     return_value: Any = None
     default = None
 
-    def __init__(self, dispatcher_interface: DispatcherInterface):
+    def __init__(self, dispatcher_interface: IDispatcherInterface):
         self.dispatcher_interface = dispatcher_interface
 
     @property
@@ -32,7 +32,7 @@ class DecoraterInterface(BaseDispatcher):
     def event(self):
         return self.dispatcher_interface.event
 
-    async def catch(self, interface: DispatcherInterface):
+    async def catch(self, interface: IDispatcherInterface):
         if isinstance(interface.default, Decorater):
             decorater: Decorater = interface.default
             if not decorater.pre:

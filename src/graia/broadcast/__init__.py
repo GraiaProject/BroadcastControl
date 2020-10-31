@@ -2,11 +2,14 @@ import asyncio
 import inspect
 import traceback
 from typing import (Callable, Dict, Generator, Hashable, List, NoReturn,
-                    Optional, Type, Union)
+                    Optional, Tuple, Type, Union)
 
 from iterwrapper import IterWrapper as iw
 
-from .builtin.event import ExceptionThrowed
+from graia.broadcast.entities.exectarget import ExecTarget
+
+from .abstract.interfaces.dispatcher import IDispatcherInterface
+from .interfaces.dispatcher import DispatcherInterface
 from .entities.decorater import Decorater
 from .entities.dispatcher import BaseDispatcher
 from .entities.event import BaseEvent
@@ -19,9 +22,9 @@ from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
                          RegisteredEventListener, RequirementCrashed,
                          UnexistedNamespace)
 from .interfaces.decorater import DecoraterInterface
-from .interfaces.dispatcher import DispatcherInterface
 from .utilles import (argument_signature, dispatcher_mixin_handler, group_dict,
                       isasyncgen, isgenerator, run_always_await_safely)
+from .typing import T_Dispatcher
 from .zone import Zone
 
 
@@ -50,7 +53,7 @@ class Broadcast:
     self.dispatcher_inject_rules = inject_rules or []
     self.dispatcher_interface = DispatcherInterface(self)
 
-    @self.dispatcher_interface.inject_global_dispatcher
+    @self.dispatcher_interface.inject_global_raw
     def _(interface: DispatcherInterface):
       if interface.annotation is interface.event.__class__:
         return interface.event
@@ -90,27 +93,39 @@ class Broadcast:
           break
 
   async def Executor(self,
-    target: Union[Callable, Listener],
+    target: Union[Callable, ExecTarget],
     event: BaseEvent,
     dispatchers: List[Union[
       Type[BaseDispatcher],
       Callable,
       BaseDispatcher,
     ]] = None,
-    hasReferrer: bool = False,
+    
+    post_exception_event: bool = False,
+    print_exception: bool = True,
     enableInternalAccess: bool = False,
-    use_inline_generator: bool = False
-  ):
-    is_listener = isinstance(target, Listener)
+    use_inline_generator: bool = False,
 
-    if is_listener:
+    use_dispatcher_statistics: bool = False,
+    use_reference_optimization: bool = False # 因为这个特性还不稳定...
+  ):
+    from .builtin.event import ExceptionThrowed
+
+    is_exectarget = isinstance(target, ExecTarget)
+
+    if isinstance(target, Listener):
       if target.namespace.disabled:
         raise DisabledNamespace("catched a disabled namespace: {0}".format(target.namespace.name))
+    
+    if use_dispatcher_statistics and not is_exectarget:
+      raise TypeError("the feature of dispatcher statistics requires a ExecTarget object as the target.")
+    if use_reference_optimization and not use_dispatcher_statistics:
+      raise ValueError("the feature of reference optimization requires dispatcher statictics.")
 
     # 先生成 dispatchers
     _dispatchers = dispatcher_mixin_handler(event.Dispatcher)
     # 开始暴力注入
-    if is_listener:
+    if is_exectarget:
       if target.inline_dispatchers:
         _dispatchers = target.inline_dispatchers + _dispatchers
       if target.namespace.injected_dispatchers:
@@ -118,28 +133,32 @@ class Broadcast:
     if dispatchers:
       _dispatchers = dispatchers + _dispatchers
 
-    target_callable = target.callable if is_listener else target
+    target_callable = target.callable if is_exectarget else target
     parameter_compile_result = {}
 
-    async with self.dispatcher_interface.enter_context(event, _dispatchers, use_inline_generator) as dii:
-      cached_dispatchers = list(dii.dispatchers)
-      if (not cached_dispatchers) or not isinstance(cached_dispatchers[0], DecoraterInterface): # 理论上只会注入一次.
+    async with self.dispatcher_interface.start_execution(event, _dispatchers, use_inline_generator) as dii:
+      try:
+        catched_first_dispatcher = next(dii.dispatcher_pure_generator())
+      except StopIteration:
         dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
-        self.dispatcher_interface.execution_contexts[0].dispatchers.insert(0, dei)
+        self.dispatcher_interface.execution_contexts[0].source.dispatchers.insert(0, dei)
+      else:
+        if not isinstance(catched_first_dispatcher, DecoraterInterface):
+          dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
+          self.dispatcher_interface.execution_contexts[0].source.dispatchers.insert(0, dei)
       # Decorater 的 Dispatcher 已经注入, 没他事了
 
       if enableInternalAccess or \
-        (is_listener and \
+        (is_exectarget and \
           target.enable_internal_access):
         internal_access_mapping = {
           Broadcast: self,
           DispatcherInterface: dii,
           **({ # 当 protocol.target 为 Listener 时的特有解析
-            Listener: target,
-            Namespace: target.namespace
-          } if is_listener else {})
+            target.__class__: target,
+          } if is_exectarget else {})
         }
-        @dii.inject_global_dispatcher
+        @dii.inject_execution_raw
         def _(interface: DispatcherInterface):
           return internal_access_mapping.get(interface.annotation)
 
@@ -147,22 +166,78 @@ class Broadcast:
         if injection_rule.check(event, dii):
           dii.execution_contexts[-1].dispatchers.insert(1, injection_rule.target_dispatcher)
 
+      whole_statistics: Dict[str, Dict[T_Dispatcher, Tuple[int, int]]] = target.dispatcher_statistics['statistics']
       try:
         for name, annotation, default in argument_signature(target_callable):
-          parameter_compile_result[name] =\
-            await dii.execute_with(name, annotation, default)
-        if is_listener:
+          statistics: Dict[T_Dispatcher, Tuple[int, int]] = whole_statistics.setdefault(name, {})
+          if use_dispatcher_statistics:
+            if use_reference_optimization: # 启用被动性质的优化特性 引用缓存(Reference Cache)
+              for dispatcher, this_statistics in sorted(statistics.items(), key=lambda x: x[1][0]/x[1][1]):
+                this_statistics[1] += 1
+                try:
+                  result, _, _, past_dispatchers = await dii.lookup_by(dispatcher(), name, annotation, default,
+                    enable_extra_return=True
+                  )
+
+                  # TODO: source 来源可靠性(其实如果下面做好了, 这里就不需要了.)
+
+                  #target.dispatcher_statistics['total'] += 1
+                  this_statistics[0] += 1
+                  
+                  if len(statistics) > 1:
+                    past_set = set(statistics.keys())
+                    for past_dispatcher in past_dispatchers:
+                      if past_dispatcher in past_set:
+                        statistics[past_dispatcher][1] += 1
+                except RequirementCrashed: # 忽略单个 Dispatcher 执行时若无法满足要求时所引发的错误
+                  pass
+                except:
+                  traceback.print_exc()
+                  raise
+                else:
+                  parameter_compile_result[name] = result
+                  # 本参数已经解析完毕, 但很显然, python 没有指定对象式的 break, so, break_flag, so ugly :(
+              else:
+                if parameter_compile_result.get(name):
+                  continue
+            parameter_compile_result[name], target_dispatcher, \
+              target_source, past_dispatchers = \
+                await dii.lookup_param(
+                  name, annotation, default,
+                  enable_extra_return=True
+                )
+            
+            # TODO: 判定 target_source 来源的可靠性(毕竟...)
+
+            #target.dispatcher_statistics['total'] += 1
+            # 1.成功给出结果的次数, 2.总共被 call 的次数
+            
+            statistics.setdefault(target_dispatcher, [0, 0])
+            this_statistics = statistics[target_dispatcher]
+            this_statistics[0] += 1
+            this_statistics[1] += 1
+
+            if len(statistics) > 1:
+              past_set = set(statistics.keys())
+              for past_dispatcher in past_dispatchers:
+                if past_dispatcher in past_set:
+                  statistics[past_dispatcher][1] += 1
+          else:
+            parameter_compile_result[name] =\
+              await dii.lookup_param(name, annotation, default)
+        if is_exectarget:
           if target.headless_decoraters: # 无头装饰器
             for hl_d in target.headless_decoraters:
-              await dii.execute_with(None, None, hl_d)
+              await dii.lookup_param(None, None, hl_d)
       except ExecutionStop:
         raise
       except RequirementCrashed:
         traceback.print_exc()
         raise
       except Exception as e:
-        traceback.print_exc()
-        if not hasReferrer: # 如果没有referrer, 会广播事件, 如果有则向上抛出
+        if print_exception:
+          traceback.print_exc()
+        if post_exception_event:
           self.postEvent(ExceptionThrowed(
             exception=e,
             event=event
@@ -170,16 +245,17 @@ class Broadcast:
         raise
 
       try:
-        result = await asyncio.ensure_future(run_always_await_safely(
+        result = await run_always_await_safely(
           target_callable, **parameter_compile_result
-        ))
+        )
       except ExecutionStop:
         raise # 直接抛出.
       except PropagationCancelled:
         raise # 防止事件广播
       except Exception as e:
-        traceback.print_exc()
-        if not hasReferrer: # 如果没有referrer, 则广播事件, 如果有则向上抛出(防止重复抛出事件)
+        if print_exception:
+          traceback.print_exc()
+        if post_exception_event: # 如果没有referrer, 则广播事件, 如果有则向上抛出(防止重复抛出事件)
           self.postEvent(ExceptionThrowed(
             exception=e,
             event=event
@@ -191,14 +267,14 @@ class Broadcast:
         gener = result
         try: result = next(gener)
         except StopIteration as e: result = e.value
-        else: dii.alive_generater_dispatcher[-1].append(
+        else: dii.alive_generator_dispatcher[-1].append(
           (gener, False)
         )
       elif [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result):
         gener = result
         try: result = await gener.__anext__()
         except StopAsyncIteration: return # value = None
-        else: dii.alive_generater_dispatcher[-1].append(
+        else: dii.alive_generator_dispatcher[-1].append(
           (gener, True)
         )
 
@@ -206,7 +282,7 @@ class Broadcast:
         return result.content
 
       if result.__class__ is RemoveMe:
-        if is_listener:
+        if isinstance(target, Listener):
           if target in self.listeners:
             self.listeners.pop(self.listeners.index(target))
       return result

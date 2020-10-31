@@ -28,7 +28,7 @@ class D2(BaseDispatcher):
     @staticmethod
     async def catch(interface: DispatcherInterface):
         if interface.annotation == "13":
-            r = await interface.execute_with(interface.name, "123", interface.default)
+            r = await interface.lookup_param(interface.name, "123", interface.default)
             return r
 
 class TestEvent(BaseEvent):
@@ -50,41 +50,31 @@ broadcast = Broadcast(loop=loop, debug_flag=True)
 i = 0
 l = asyncio.Lock()
 
-#@broadcast.receiver(TestEvent)
-async def r():
+@broadcast.receiver(TestEvent)
+async def r(u, v: str, p: "123"):
     global i
     async with l:
         i += 1
 
-for _ in range(100):
-    @broadcast.receiver(TestEvent, headless_decoraters=[Depend(r), Depend(r)])
-    def test():
-        pass
-
-async def main(start):
-    print("将在 5 s 后开始测试.")
-    for i in range(1, 6):
-        print(i)
-        await asyncio.sleep(1)
-    print("测试开始.", start)
-    for _ in range(10):
-        broadcast.postEvent(TestEvent())
+async def main():
+    #print("将在 5 s 后开始测试.")
+    #for i in range(1, 6):
+    #    print(i)
+    #    await asyncio.sleep(1)
+    #print("测试开始.", start)
+    #for _ in range(100000):
+    #    broadcast.postEvent(TestEvent())
+    #end = time.time()
+    #print(f"事件广播完毕, 总共 10000 个, 当前时间: {end}, 用时: {end - start - 5}")
+    listener = broadcast.getListener(r)
+    start = time.time()
+    await asyncio.gather(*[broadcast.Executor(
+        listener, event,
+        #use_dispatcher_statistics=True, use_reference_optimization=True
+    ) for _ in range(100000)])
     end = time.time()
-    print(f"事件广播完毕, 总共 10 个, 当前时间: {end}, 用时: {end - start - 5}")
+    print(end - start)
+    debug(listener.dispatcher_statistics)
+    print(i)
 
-start = time.time()
-loop.run_until_complete(main(start))
-
-end = time.time()
-print(f"测试结束, 15s 后退出, 用时 {end - start - 5}")
-loop.run_until_complete(asyncio.sleep(15))
-import objgraph
-#print(objgraph.most_common_types(20))
-#import pdb; pdb.set_trace()
-#print(broadcast.dispatcher_interface.execution_contexts[0].dispatchers)
-dii = objgraph.by_type("DecoraterInterface")
-print(len(dii))
-
-print(i)
-#import pdb; pdb.set_trace()
-print("退出....", time.time() - start)
+loop.run_until_complete(main())

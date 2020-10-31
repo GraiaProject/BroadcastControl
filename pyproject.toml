@@ -17,6 +17,8 @@ pydantic = "^1.5.1"
 pylint = "^2.5.3"
 devtools = "^0.5.1"
 objgraph = "^3.4.1"
+vprof = "^0.38"
+line-profiler = "^3.0.2"
 
 [build-system]
 requires = ["poetry>=0.12"]

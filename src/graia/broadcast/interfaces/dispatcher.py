@@ -1,309 +1,304 @@
+import weakref
 import itertools
-from typing import (Any, AsyncGenerator, Callable, Generator, List, Optional,
-                    Set, Tuple, Type, Union, _GenericAlias)
 
-from ..entities.dispatcher import BaseDispatcher
-from ..entities.event import BaseEvent
-from ..entities.signatures import Force
-from ..exceptions import OutOfMaxGenerater, RequirementCrashed
-from ..utilles import (as_sliceable, is_asyncgener, isgeneratorfunction,
-                       run_always_await_safely)
+from pydantic.errors import NoneIsAllowedError
 
+from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface
+from typing import Any, AsyncGenerator, Callable, Generator, Iterator, List, Optional, Tuple, Union, _GenericAlias
+from graia.broadcast.entities.dispatcher import BaseDispatcher
+from graia.broadcast.entities.event import BaseEvent
 
-def get_raw_dispatcher_callable(dispatcher: Any):
-  if isinstance(dispatcher, BaseDispatcher):
-    return dispatcher.catch
-  if callable(dispatcher):
-    return dispatcher
+from graia.broadcast.entities.context import ExecutionContext, ParameterContext
+from graia.broadcast.entities.signatures import Force
+from graia.broadcast.entities.source import DispatcherSource
+from graia.broadcast.exceptions import OutOfMaxGenerater, RequirementCrashed
+from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
+from graia.broadcast.utilles import is_asyncgener, isgeneratorfunction, run_always_await_safely
 
 class EmptyEvent(BaseEvent):
-  class Dispatcher:
-    @staticmethod
-    def catch(_):
-      pass
+    class Dispatcher:
+        @staticmethod
+        def catch(_):
+            pass
 
-class ExecutionContext:
-  __slots__ = ("dispatchers", "always_dispatchers", "event", "inline_generator", "_index")
-
-  dispatchers: List[BaseDispatcher]
-  always_dispatchers: Set[Union[BaseDispatcher, Callable]]
-  event: BaseEvent
-  inline_generator: bool
-  _index: int
-
-  def __init__(self, dispatchers: List[BaseDispatcher], event: BaseEvent, inline_generator: bool = False) -> None:
-    self.dispatchers = dispatchers
-    self.event = event
-    self.inline_generator = inline_generator
-    self._index = 0
-  
-    self.always_dispatchers = set()
-    for i in dispatchers:
-      if isinstance(i, BaseDispatcher) and i.always:
-        self.always_dispatchers.add(i)
-
-class ParameterContext:
-  def __init__(self, name, annotation, default, dispatchers, optional=False) -> None:
-    self.name, self.annotation, self.default, self.dispatchers = \
-      name, annotation, default, dispatchers
-    self.optional = optional
-  
-  def __repr__(self) -> str:
-    return "<ParameterContext name={0} annotation={1} default={2} locald={3}"\
-      .format(
-        self.name, self.annotation, self.default, self.dispatchers)
-
-  name: str
-  annotation: Any
-  default: Any
-  dispatchers: List[Union[BaseDispatcher, Callable]]
-  optional: bool
-
-  __slots__ = ("name", "annotation", "default", "dispatchers", "optional")
-
-class DispatcherInterface:
-  __slots__ = ("broadcast", "execution_contexts", "parameter_contexts", "alive_generater_dispatcher")
-
-  broadcast: "Broadcast"
-
-  execution_contexts: List[ExecutionContext]
-  parameter_contexts: List[ParameterContext]
-  alive_generater_dispatcher: List[
-    List[Tuple[Union[Generator, AsyncGenerator], bool]]
-    # True => async, False => sync
-  ]
-
-  @property
-  def name(self):
-    return self.parameter_contexts[-1].name
-
-  @property
-  def annotation(self):
-    return self.parameter_contexts[-1].annotation
-
-  @property
-  def default(self):
-    return self.parameter_contexts[-1].default
-
-  @property
-  def _index(self):
-    return self.execution_contexts[-1]._index
-
-  @property
-  def global_dispatchers(self):
-    return self.execution_contexts[0].dispatchers
-
-  @property
-  def dispatchers(self):
-    return as_sliceable(itertools.chain(
-      self.execution_contexts[0].dispatchers,
-      self.parameter_contexts[-1].dispatchers,
-      self.execution_contexts[-1].dispatchers
-    ))
-
-  @property
-  def event(self):
-    return self.execution_contexts[-1].event
-
-  # dispatcher 允许任何值, 包括 Decorater, 只不过 Decorater Dispatcher 的优先级是隐式最高, 所以基本上不可能截获到.
-
-  def __init__(self, broadcast_instance: "Broadcast"):
-    self.broadcast = broadcast_instance
-    self.alive_generater_dispatcher = [[]]
-    self.parameter_contexts = [ParameterContext(None, None, None, [])]
-    self.execution_contexts = [ExecutionContext([], EmptyEvent())]
-  
-  def enter_context(self, event: BaseEvent, dispatchers: List[BaseDispatcher], use_inline_generator: bool = False):
-    self.execution_contexts.append(ExecutionContext(dispatchers, event, use_inline_generator))
-    for i in self.dispatchers[self._index:]:
-      if getattr(i, "always", False):
-        self.execution_contexts[-1].always_dispatchers.add(i)
-    return self
-
-  async def __aenter__(self) -> "DispatcherInterface":
-    self.alive_generater_dispatcher.append([])
-    return self
-
-  async def __aexit__(self, _, exc, tb):
-    if self.alive_generater_dispatcher[-1]:
-      if self.execution_contexts[-1].inline_generator:
-        if len(self.alive_generater_dispatcher) > 2: # 防止插入到保护区
-          self.alive_generater_dispatcher[-2].extend(self.alive_generater_dispatcher[-1])
-        else:
-          raise ValueError("cannot cast to inline")
-      else:
-        await self.alive_dispatcher_killer()
-    self.alive_generater_dispatcher.pop()
-
-    for i in self.dispatchers:
-      after_execute_call = getattr(i, "after_execute", None)
-      if callable(after_execute_call):
-        try:
-          await run_always_await_safely(after_execute_call)
-        except:
-          pass
-
-    self.execution_contexts.pop()
-
-    if tb is not None:
-      raise exc
-
-  def inject_local_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
-    for dispatcher in dispatchers[::-1]:
-      self.parameter_contexts[-1].dispatchers.insert(0, dispatcher)
-    always_dispatchers = self.execution_contexts[-1].always_dispatchers
-
-    for i in dispatchers:
-      if getattr(i, "always", False):
-        always_dispatchers.add(i)
-
-  def inject_execute_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
-    for dispatcher in dispatchers:
-      self.execution_contexts[-1].dispatchers.insert(0, dispatcher)
-    always_dispatchers = self.execution_contexts[-1].always_dispatchers
-
-    for i in dispatchers:
-      if getattr(i, "always", False):
-        always_dispatchers.add(i)
-
-  def inject_global_dispatcher(self, *dispatchers: List[Union[BaseDispatcher, Callable]]):
-    #self.dispatchers.extend(dispatchers)
-    for dispatcher in dispatchers[::-1]:
-      self.global_dispatchers.insert(1, dispatcher)
-    always_dispatchers = self.execution_contexts[-1].always_dispatchers
-
-    for i in dispatchers:
-      if getattr(i, "always", False):
-        always_dispatchers.add(i)
-
-  async def execute_with(self, name: str, annotation, default):
-    optional = False
-    if isinstance(annotation, _GenericAlias):
-      if annotation.__origin__ is Union and annotation.__args__[-1] is type(None):
-        # 如果是 Optional, 则它的最后一位应为 NoneType.
-        optional = True
-        annotation = annotation.__args__[0]
-      else:
-        raise TypeError("cannot parse this annotation: {0}".format(annotation))
-
-    self.parameter_contexts.append(
-      ParameterContext(name, annotation, default, [], optional=optional)
-    )
-
-    alive_dispatchers = self.alive_generater_dispatcher[-1]
-    always_dispatcher = self.execution_contexts[-1].always_dispatchers
+class DispatcherInterface(IDispatcherInterface):
+    @property
+    def name(self) -> str:
+        return self.parameter_contexts[-1].name
     
-    result = None
-    try:
-      for self.execution_contexts[-1]._index, dispatcher in enumerate(
-          self.dispatchers[self._index+int(bool(self._index)):],
-          start=self._index+int(bool(self._index))):
-        
-        if getattr(dispatcher, "always", False) and dispatcher in always_dispatcher: # 你永远不知道需求有多复杂.
-          always_dispatcher.remove(dispatcher)
+    @property
+    def annotation(self) -> Any:
+        return self.parameter_contexts[-1].annotation
+    
+    @property
+    def default(self) -> Any:
+        return self.parameter_contexts[-1].default
+    
+    @property
+    def _index(self) -> int:
+        return self.execution_contexts[-1]._index
+    
+    @property
+    def event(self) -> BaseEvent:
+        return self.execution_contexts[-1].event
 
-        if isinstance(dispatcher, type) and issubclass(dispatcher, BaseDispatcher):
-          local_dispatcher = dispatcher().catch
-        elif isinstance(dispatcher, BaseDispatcher):
-          local_dispatcher = dispatcher.catch
-        elif callable(dispatcher):
-          local_dispatcher = dispatcher
-        else:
-          raise ValueError("invaild dispatcher: ", dispatcher)
-      
-        if is_asyncgener(local_dispatcher):
-          now_dispatcher_generater = local_dispatcher(self).__aiter__()
+    @property
+    def global_dispatcher(self) -> List[T_Dispatcher]:
+        return self.execution_contexts[0].dispatchers
+    
+    @property
+    def has_current_exec_context(self) -> bool:
+        return len(self.execution_contexts) >= 2
+    
+    @property
+    def has_current_param_context(self) -> bool:
+        return len(self.parameter_contexts) >= 2
 
-          try:
-            result = await now_dispatcher_generater.__anext__()
-          except StopAsyncIteration:
-            continue
+    def __init__(self, broadcast_instance: "Broadcast") -> None:
+        self.broadcast = broadcast_instance
+        self.alive_generator_dispatcher = [[]]
+        self.execution_contexts = [ExecutionContext([], EmptyEvent())]
+        self.parameter_contexts = [ParameterContext(None, None, None, [])]
+
+    async def __aenter__(self) -> "DispatcherInterface":
+        return self
+    
+    async def __aexit__(self, _, exc: Exception, tb):
+        await self.exit_current_execution()
+        if tb is not None:
+            raise exc.with_traceback(tb)
+
+    def start_execution(self, event: BaseEvent, dispatchers: List[T_Dispatcher], use_inline_generator: bool = False) -> "DispatcherInterface":
+        current_exec_context = ExecutionContext(dispatchers, event, use_inline_generator)
+        # 这里本来应该要让所有 always 集中下的......因为性能实在是太过惨淡, 故放弃
+        self.execution_contexts.append(current_exec_context)
+        self.alive_generator_dispatcher.append([])
+        return self
+    
+    async def exit_current_execution(self):
+        if self.alive_generator_dispatcher[-1]:
+          if self.execution_contexts[-1].inline_generator:
+            if len(self.alive_generator_dispatcher) > 2: # 防止插入到保护区
+              self.alive_generator_dispatcher[-2].extend(self.alive_generator_dispatcher[-1])
+            else:
+              raise ValueError("cannot cast to inline")
           else:
-            alive_dispatchers.append(
-              (now_dispatcher_generater, True)
-            )
-        elif isgeneratorfunction(local_dispatcher):
-          now_dispatcher_generater = local_dispatcher(self).__iter__()
+            await self.alive_dispatcher_killer()
+        self.alive_generator_dispatcher.pop()
 
-          try:
-            result = now_dispatcher_generater.__next__()
-          except StopIteration as e:
-            result = e.value
-          else:
-            alive_dispatchers.append(
-              (now_dispatcher_generater, False)
-            )
-        else:
-          result = await run_always_await_safely(local_dispatcher, self)
-
-        if result is None:
-          continue
+        for i in self.dispatcher_pure_generator():
+            after_execute_call = getattr(i, "after_execute", None)
+            if callable(after_execute_call):
+                try:
+                    await run_always_await_safely(after_execute_call)
+                except:
+                    pass
         
-        if result.__class__ is Force:
-          result = result.target
+        self.execution_contexts.pop()
+    
+    async def alive_dispatcher_killer(self):
+        for unbound_gen, is_async_gen in self.alive_generator_dispatcher[-1]:
+            index = 0
+            if is_async_gen:
+                async for _ in unbound_gen:
+                    if index == 15:
+                        raise OutOfMaxGenerater("a dispatch as a sync generator had to stop: ", unbound_gen)
+                    index += 1
+            else:
+                for _ in unbound_gen:
+                    if index == 15:
+                        raise OutOfMaxGenerater("a dispatch as a sync generator had to stop: ", unbound_gen)
+                    index += 1
+    
+    @property
+    def dispatcher_sources(self) -> List[DispatcherSource]:
+        return [
+            self.execution_contexts[0].source,
+            self.parameter_contexts[-1].source,
+            self.execution_contexts[-1].source
+        ]
+    
+    def dispatcher_pure_generator(self) -> Generator[None, None, T_Dispatcher]:
+        for source in self.dispatcher_sources:
+            yield from source.dispatchers
+    
+    def dispatcher_generator(self, 
+        source_from: Callable[["DispatcherInterface"], Iterator[DispatcherSource[T_Dispatcher, Any]]] = \
+            lambda x: x.dispatcher_sources
+    ) -> Generator[None, None, Tuple[T_Dispatcher, T_Dispatcher_Callable, DispatcherSource]]:
+        always_dispatcher = self.execution_contexts[-1].always_dispatchers
+        
+        for source in source_from(self):
+            for dispatcher in source.dispatchers:
+                if dispatcher in always_dispatcher:
+                    always_dispatcher.remove(dispatcher)
+                
+                dispatcher_callable: T_Dispatcher_Callable = None
+                if dispatcher.__class__ is type and issubclass(dispatcher, BaseDispatcher):
+                    dispatcher_callable = dispatcher().catch
+                elif hasattr(dispatcher, "catch"):
+                    dispatcher_callable = dispatcher.catch
+                elif callable(dispatcher):
+                    dispatcher_callable = dispatcher
+                else:
+                    raise ValueError("invaild dispatcher: ", dispatcher)
+                
+                yield (dispatcher, dispatcher_callable, source)
 
-        self.execution_contexts[-1]._index = 0
+    async def execute_dispatcher_callable(self, dispatcher_callable: T_Dispatcher_Callable) -> Any:
+        alive_dispatchers = self.alive_generator_dispatcher[-1]
+
+        if is_asyncgener(dispatcher_callable):
+            current_generator = dispatcher_callable(self).__aiter__()
+
+            try:
+                result = await current_generator.__anext__()
+            except StopAsyncIteration:
+                return
+            else:
+                alive_dispatchers.append((current_generator, True))
+        elif isgeneratorfunction(dispatcher_callable):
+            current_generator = dispatcher_callable(self).__iter__()
+
+            try:
+                result = current_generator.__next__()
+            except StopIteration as e:
+                result = e.value
+            else:
+                alive_dispatchers.append((current_generator, False))
+        else:
+            result = await run_always_await_safely(dispatcher_callable, self)
+        
         return result
-      else:
-        if optional:
-          self.execution_contexts[-1]._index = 0
-          return None
-        raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
-    finally:
-      for always_dispatcher in always_dispatcher:
-        if isinstance(always_dispatcher, type) and issubclass(always_dispatcher, BaseDispatcher):
-          local_dispatcher = always_dispatcher().catch
-        elif isinstance(always_dispatcher, BaseDispatcher):
-          local_dispatcher = always_dispatcher.catch
-        elif callable(always_dispatcher):
-          local_dispatcher = always_dispatcher
-        else:
-          raise ValueError("invaild dispatcher: ", always_dispatcher)
 
-        if is_asyncgener(local_dispatcher):
-          now_dispatcher_generater = local_dispatcher(self).__aiter__()
-          alive_dispatchers.append(
-            (now_dispatcher_generater, True)
-          )
+    @staticmethod
+    def preprocess_param_annotation(annotation: Any) -> Tuple[Any, bool]:
+        optional = False
+        if isinstance(annotation, _GenericAlias):
+            if annotation.__origin__ is Union and annotation.__args__[-1] is type(None):
+                # 如果是 Optional, 则它的最后一位应为 NoneType.
+                optional = True
+                annotation = annotation.__args__[0]
+            else:
+                raise TypeError("cannot preprocess this annotation: {0}".format(annotation))
 
-          try:
-            await now_dispatcher_generater.__anext__()
-          except StopAsyncIteration:
-            pass
-        elif isgeneratorfunction(local_dispatcher):
-          now_dispatcher_generater = local_dispatcher(self).__iter__()
-          alive_dispatchers.append(
-            (now_dispatcher_generater, False)
-          )
+        return (annotation, optional)
 
-          try:
-            now_dispatcher_generater.__next__()
-          except StopIteration as e:
-            pass
-        else:
-          await run_always_await_safely(local_dispatcher, self)
+    async def lookup_param(self,
+        name: str, annotation: Any, default: Any,
+        enable_extra_return: bool = False
+    ) -> Union[Any, Tuple[Any, T_Dispatcher, DispatcherSource, List[T_Dispatcher]]]:
+        annotation, is_optional_param = self.preprocess_param_annotation(annotation)
+        self.parameter_contexts.append(ParameterContext(
+            name, annotation, default, [], optional=is_optional_param
+        ))
 
-      self.parameter_contexts.pop()
+        result = None
+        try:
+            start_offset = self._index + int(bool(self._index))
+            for self.execution_contexts[-1]._index, (dispatcher, dispatcher_callable, source) in \
+                enumerate(itertools.islice(self.dispatcher_generator(),
+                    start_offset, None, None
+            ), start=start_offset):
+                result = await self.execute_dispatcher_callable(dispatcher_callable)
+                
+                if result is None:
+                    continue
+                
+                if result.__class__ is Force:
+                    result = result.target
+                
+                self.execution_contexts[-1]._index = 0
+                return (
+                    result, weakref.ref(dispatcher), source,
+                    list(map(lambda x: weakref.ref(x), itertools.islice(
+                        self.dispatcher_generator(), start_offset, self._index
+                    )))
+                ) if enable_extra_return else result
+            else:
+                if is_optional_param:
+                    self.execution_contexts[-1]._index = 0
+                    return
+                raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
+        finally:
+            for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
+                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)]
+            ):
+                await self.execute_dispatcher_callable(dispatcher_callable)
 
-  async def alive_dispatcher_killer(self):
-    for unbound_gen, is_async_gen in self.alive_generater_dispatcher[-1]:
-      index = 0
-      if is_async_gen:
-        async for _ in unbound_gen:
-          if index == 15:
-            raise OutOfMaxGenerater(
-              "a dispatch as a sync generator had to stop: ", unbound_gen
-            )
-          index += 1
-      else:
-        for _ in unbound_gen:
-          if index == 15:
-            raise OutOfMaxGenerater(
-              "a dispatch as a sync generator had to stop: ", unbound_gen
-            )
-          index += 1
-  
-  def getDispatcher(self, dispatcher_class: Type[BaseDispatcher]) -> Optional[BaseDispatcher]:
-    for i in self.dispatchers:
-      if type(i) is dispatcher_class:
-        return i
+            self.parameter_contexts.pop()
+    
+    async def lookup_using_current(self) -> Any:
+        _, is_optional_param = self.preprocess_param_annotation(self.annotation)
+
+        result = None
+        try:
+            for self.execution_contexts[-1]._index, (dispatcher, dispatcher_callable, source) in \
+                enumerate(itertools.islice(self.dispatcher_generator(),
+                    self._index + int(bool(self._index)), None, None
+            ), start=self._index + int(bool(self._index))):
+                result = await self.execute_dispatcher_callable(dispatcher_callable)
+                
+                if result is None:
+                    continue
+                
+                if result.__class__ is Force:
+                    result = result.target
+                
+                self.execution_contexts[-1]._index = 0
+                return result
+            else:
+                if is_optional_param:
+                    self.execution_contexts[-1]._index = 0
+                    return
+                raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
+        finally:
+            for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
+                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)]
+            ):
+                await self.execute_dispatcher_callable(dispatcher_callable)
+
+    async def lookup_by(self, dispatcher: T_Dispatcher,
+        name: str, annotation: Any, default: Any,
+        enable_extra_return: bool = False
+    ) -> Union[Any, Tuple[Any, T_Dispatcher, DispatcherSource, List[T_Dispatcher]]]:
+        annotation, is_optional_param = self.preprocess_param_annotation(annotation)
+        self.parameter_contexts.append(ParameterContext(
+            name, annotation, default, [], optional=is_optional_param
+        ))
+
+        result = None
+        try:
+            start_offset = self._index + int(bool(self._index))
+            for self.execution_contexts[-1]._index, (dispatcher, dispatcher_callable, source) in \
+                enumerate(itertools.islice(self.dispatcher_generator(lambda x: [DispatcherSource([dispatcher])]),
+                    start_offset, None, None
+            ), start=start_offset):
+                result = await self.execute_dispatcher_callable(dispatcher_callable)
+                
+                if result is None:
+                    continue
+                
+                if result.__class__ is Force:
+                    result = result.target
+                
+                self.execution_contexts[-1]._index = 0
+                return (
+                    result, weakref.ref(dispatcher), source,
+                    list(map(lambda x: weakref.ref(x), itertools.islice(
+                        self.dispatcher_generator(), start_offset, self._index
+                    )))
+                ) if enable_extra_return else result
+            else:
+                if is_optional_param:
+                    self.execution_contexts[-1]._index = 0
+                    return
+                raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
+        finally:
+            for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
+                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)]
+            ):
+                await self.execute_dispatcher_callable(dispatcher_callable)
+
+            self.parameter_contexts.pop()
+

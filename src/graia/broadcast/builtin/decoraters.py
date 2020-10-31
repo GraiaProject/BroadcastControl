@@ -27,7 +27,7 @@ class Depend(Decorater):
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
             event=interface.event,
-            hasReferrer=True,
+            post_exception_event=True,
             use_inline_generator=True
         )
 
