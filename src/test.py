@@ -70,11 +70,11 @@ async def main():
     start = time.time()
     await asyncio.gather(*[broadcast.Executor(
         listener, event,
-        #use_dispatcher_statistics=True, use_reference_optimization=True
-    ) for _ in range(100000)])
+        use_dispatcher_statistics=True, use_reference_optimization=True
+    ) for _ in range(10000)])
     end = time.time()
     print(end - start)
     debug(listener.dispatcher_statistics)
-    print(i)
+    #print(i)
 
 loop.run_until_complete(main())

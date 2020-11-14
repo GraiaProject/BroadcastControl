@@ -15,7 +15,7 @@ class ExecutionContext:
   _index: int
 
   def __init__(self, dispatchers: List[T_Dispatcher], event: BaseEvent, inline_generator: bool = False) -> None:
-    self.source = DispatcherSource(dispatchers, weakref.proxy(self))
+    self.source = DispatcherSource(dispatchers, weakref.ref(self))
     self.event = event
     self.inline_generator = inline_generator
     self._index = 0
@@ -32,7 +32,7 @@ class ExecutionContext:
 class ParameterContext:
   def __init__(self, name, annotation, default, dispatchers, optional=False) -> None:
     self.name, self.annotation, self.default, self.source = \
-      name, annotation, default, DispatcherSource(dispatchers, weakref.proxy(self))
+      name, annotation, default, DispatcherSource(dispatchers, weakref.ref(self))
     self.optional = optional
   
   def __repr__(self) -> str:

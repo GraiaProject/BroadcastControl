@@ -302,3 +302,26 @@ class DispatcherInterface(IDispatcherInterface):
 
             self.parameter_contexts.pop()
 
+    async def lookup_by_directly(self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any) -> Any:
+        annotation, is_optional_param = self.preprocess_param_annotation(annotation)
+        self.parameter_contexts.append(ParameterContext(
+            name, annotation, default, [], optional=is_optional_param
+        ))
+
+        if dispatcher.__class__ is type and issubclass(dispatcher, BaseDispatcher):
+            dispatcher_callable = dispatcher().catch
+        elif hasattr(dispatcher, "catch"):
+            dispatcher_callable = dispatcher.catch
+        elif callable(dispatcher):
+            dispatcher_callable = dispatcher
+        else:
+            raise ValueError("invaild dispatcher: ", dispatcher)
+    
+        try:
+            result = await self.execute_dispatcher_callable(dispatcher_callable)
+            if result.__class__ is Force:
+                return result.target
+
+            return result
+        finally:
+            self.parameter_contexts.pop()

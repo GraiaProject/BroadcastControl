@@ -106,6 +106,10 @@ class IDispatcherInterface(metaclass=ABCMeta):
     async def lookup_by(self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any) -> Any:
         pass
 
+    @abstractmethod
+    async def lookup_by_directly(self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any) -> Any:
+        pass
+
     @abstractproperty
     def has_current_exec_context(self) -> bool:
         pass

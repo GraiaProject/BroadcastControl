@@ -42,8 +42,13 @@ class Broadcast:
 
   debug_flag: bool
 
+  use_dispatcher_statistics: bool
+  use_reference_optimization: bool
+
   def __init__(self, *, loop: asyncio.AbstractEventLoop = None, debug_flag: bool = False,
-    inject_rules: Optional[List[BaseRule]] = None
+    inject_rules: Optional[List[BaseRule]] = None,
+    use_dispatcher_statistics: bool = False,
+    use_reference_optimization: bool = False
   ):
     self.loop = loop or asyncio.get_event_loop()
     self.default_namespace = Namespace(name="default", default=True)
@@ -52,6 +57,12 @@ class Broadcast:
     self.listeners = []
     self.dispatcher_inject_rules = inject_rules or []
     self.dispatcher_interface = DispatcherInterface(self)
+
+    self.use_dispatcher_statistics = use_dispatcher_statistics
+
+    if not use_dispatcher_statistics and use_reference_optimization:
+      raise ValueError("the feature of reference optimization requires dispatcher statictics.")
+    self.use_reference_optimization = use_reference_optimization
 
     @self.dispatcher_interface.inject_global_raw
     def _(interface: DispatcherInterface):
@@ -107,12 +118,15 @@ class Broadcast:
     use_inline_generator: bool = False,
 
     use_dispatcher_statistics: bool = False,
-    use_reference_optimization: bool = False # 因为这个特性还不稳定...
+    use_reference_optimization: bool = False
   ):
     from .builtin.event import ExceptionThrowed
 
     is_exectarget = isinstance(target, ExecTarget)
     is_listener = isinstance(target, Listener)
+
+    use_dispatcher_statistics = self.use_dispatcher_statistics or use_dispatcher_statistics
+    use_reference_optimization = self.use_reference_optimization or use_reference_optimization
 
     if is_listener:
       if target.namespace.disabled:
@@ -156,9 +170,13 @@ class Broadcast:
         internal_access_mapping = {
           Broadcast: self,
           DispatcherInterface: dii,
-          **({ # 当 protocol.target 为 Listener 时的特有解析
+          **({ # 当 target 为 Listener 时的特有解析
             target.__class__: target,
-          } if is_exectarget else {})
+          } if is_exectarget else {}),
+          **({
+            Namespace: target.namespace,
+            
+          } if is_listener else {})
         }
         @dii.inject_execution_raw
         def _(interface: DispatcherInterface):
@@ -179,32 +197,25 @@ class Broadcast:
             if use_reference_optimization: # 启用被动性质的优化特性 引用缓存(Reference Cache)
               for dispatcher, this_statistics in sorted(statistics.items(), key=lambda x: x[1][0]/x[1][1]):
                 this_statistics[1] += 1
+                if dispatcher() is None: # ref 在对象 dead 时返回 None.
+                  del statistics[dispatcher]
+                  continue
+
                 try:
-                  result, _, _, past_dispatchers = await dii.lookup_by(dispatcher(), name, annotation, default,
-                    enable_extra_return=True
-                  )
-
-                  # TODO: source 来源可靠性(其实如果下面做好了, 这里就不需要了.)
-
-                  #target.dispatcher_statistics['total'] += 1
-                  this_statistics[0] += 1
-                  
-                  if len(statistics) > 1:
-                    past_set = set(statistics.keys())
-                    for past_dispatcher in past_dispatchers:
-                      if past_dispatcher in past_set:
-                        statistics[past_dispatcher][1] += 1
+                  result = await dii.lookup_by_directly(dispatcher(), name, annotation, default)
                 except RequirementCrashed: # 忽略单个 Dispatcher 执行时若无法满足要求时所引发的错误
                   pass
                 except:
                   traceback.print_exc()
                   raise
                 else:
+                  this_statistics[0] += 1
                   parameter_compile_result[name] = result
                   # 本参数已经解析完毕, 但很显然, python 没有指定对象式的 break, so, break_flag, so ugly :(
               else:
                 if parameter_compile_result.get(name):
                   continue
+  
             parameter_compile_result[name], target_dispatcher, \
               target_source, past_dispatchers = \
                 await dii.lookup_param(
@@ -213,23 +224,22 @@ class Broadcast:
                 )
             
             # TODO: 判定 target_source 来源的可靠性(毕竟...)
-
-            #target.dispatcher_statistics['total'] += 1
-            # 1.成功给出结果的次数, 2.总共被 call 的次数
-            
-            statistics.setdefault(target_dispatcher, [0, 0])
-            this_statistics = statistics[target_dispatcher]
-            this_statistics[0] += 1
-            this_statistics[1] += 1
-
-            if len(statistics) > 1:
-              past_set = set(statistics.keys())
-              for past_dispatcher in past_dispatchers:
-                if past_dispatcher in past_set:
-                  statistics[past_dispatcher][1] += 1
+            if target_source.source() is not None:
+              # 1.成功给出结果的次数, 2.总共被 call 的次数
+              statistics.setdefault(target_dispatcher, [0, 0])
+              this_statistics = statistics[target_dispatcher]
+              this_statistics[0] += 1
+              this_statistics[1] += 1
+  
+              if len(statistics) > 1:
+                past_set = set(statistics.keys())
+                for past_dispatcher in past_dispatchers:
+                  if past_dispatcher in past_set:
+                    statistics[past_dispatcher][1] += 1
           else:
             parameter_compile_result[name] =\
               await dii.lookup_param(name, annotation, default)
+
         if is_exectarget:
           if target.headless_decoraters:
             for hl_d in target.headless_decoraters:
