@@ -18,6 +18,8 @@ import objgraph
 import copy
 import functools
 
+from graia.broadcast.utilles import dispatcher_mixin_handler
+
 #print(objgraph.most_common_types(20))
 
 class D1(BaseDispatcher):
@@ -70,16 +72,22 @@ async def main():
     #    broadcast.postEvent(TestEvent())
     #end = time.time()
     #print(f"事件广播完毕, 总共 10000 个, 当前时间: {end}, 用时: {end - start - 5}")
-    """
+    
     listener = broadcast.getListener(r)
     start = time.time()
     await asyncio.gather(*[broadcast.Executor(
         listener, event,
         use_dispatcher_statistics=True, use_reference_optimization=True
-    ) for _ in range()])
+    ) for _ in range(10000)])
     end = time.time()
-    print(end - start)
-    debug(listener.dispatcher_statistics)
+    print(end - start, "预热完毕..?")
+    await asyncio.gather(*[broadcast.Executor(
+        listener, event,
+        use_dispatcher_statistics=True, use_reference_optimization=True
+    ) for _ in range(10000)])
+    print(time.time() - end)
+    debug(dispatcher_mixin_handler.cache_info())
+    #debug(listener.dispatcher_statistics)
     #print(i)
     """
     def post_event():
@@ -95,6 +103,6 @@ async def main():
         #return event
     
     print(await inc.wait(waiter))
-    print("可能成功了...结果已经打印")
+    print("可能成功了...结果已经打印")"""
 
 loop.run_until_complete(main())

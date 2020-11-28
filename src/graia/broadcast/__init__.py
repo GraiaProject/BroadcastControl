@@ -211,7 +211,6 @@ class Broadcast:
                 else:
                   this_statistics[0] += 1
                   parameter_compile_result[name] = result
-                  # 本参数已经解析完毕, 但很显然, python 没有指定对象式的 break, so, break_flag, so ugly :(
               else:
                 if parameter_compile_result.get(name):
                   continue

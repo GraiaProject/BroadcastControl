@@ -1,10 +1,9 @@
 import weakref
 import itertools
-
-from pydantic.errors import NoneIsAllowedError
+from functools import lru_cache
 
 from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface
-from typing import Any, AsyncGenerator, Callable, Generator, Iterator, List, Optional, Tuple, Union, _GenericAlias
+from typing import Any, Callable, Generator, Iterator, List, Optional, Tuple, Union, _GenericAlias
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import BaseEvent
 
@@ -122,6 +121,18 @@ class DispatcherInterface(IDispatcherInterface):
         for source in self.dispatcher_sources:
             yield from source.dispatchers
     
+    @staticmethod
+    @lru_cache(None)
+    def dispatcher_callable_detector(dispatcher: T_Dispatcher) -> T_Dispatcher_Callable:
+        if dispatcher.__class__ is type and issubclass(dispatcher, BaseDispatcher):
+            return dispatcher().catch
+        elif hasattr(dispatcher, "catch"):
+            return dispatcher.catch
+        elif callable(dispatcher):
+            return dispatcher
+        else:
+            raise ValueError("invaild dispatcher: ", dispatcher)
+
     def dispatcher_generator(self, 
         source_from: Callable[["DispatcherInterface"], Iterator[DispatcherSource[T_Dispatcher, Any]]] = \
             lambda x: x.dispatcher_sources
@@ -133,16 +144,7 @@ class DispatcherInterface(IDispatcherInterface):
                 if dispatcher in always_dispatcher:
                     always_dispatcher.remove(dispatcher)
                 
-                dispatcher_callable: T_Dispatcher_Callable = None
-                if dispatcher.__class__ is type and issubclass(dispatcher, BaseDispatcher):
-                    dispatcher_callable = dispatcher().catch
-                elif hasattr(dispatcher, "catch"):
-                    dispatcher_callable = dispatcher.catch
-                elif callable(dispatcher):
-                    dispatcher_callable = dispatcher
-                else:
-                    raise ValueError("invaild dispatcher: ", dispatcher)
-                
+                dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
                 yield (dispatcher, dispatcher_callable, source)
 
     async def execute_dispatcher_callable(self, dispatcher_callable: T_Dispatcher_Callable) -> Any:
@@ -308,14 +310,7 @@ class DispatcherInterface(IDispatcherInterface):
             name, annotation, default, [], optional=is_optional_param
         ))
 
-        if dispatcher.__class__ is type and issubclass(dispatcher, BaseDispatcher):
-            dispatcher_callable = dispatcher().catch
-        elif hasattr(dispatcher, "catch"):
-            dispatcher_callable = dispatcher.catch
-        elif callable(dispatcher):
-            dispatcher_callable = dispatcher
-        else:
-            raise ValueError("invaild dispatcher: ", dispatcher)
+        dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
     
         try:
             result = await self.execute_dispatcher_callable(dispatcher_callable)

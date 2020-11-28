@@ -84,11 +84,11 @@ def flat_yield_from(l):
         if type(i) == list:
             yield from i
 
+@lru_cache(None)
 def dispatcher_mixin_handler(dispatcher: BaseDispatcher) -> List[BaseDispatcher]:
     unbound_mixin = getattr(dispatcher, "mixin", [])
     result = [dispatcher]
 
-    BaseDispatcher.__bases__
     for i in unbound_mixin:
         if issubclass(i, BaseDispatcher):
             result.extend(dispatcher_mixin_handler(i))
