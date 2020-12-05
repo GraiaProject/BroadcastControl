@@ -117,10 +117,6 @@ class IDispatcherInterface(metaclass=ABCMeta):
     @abstractproperty
     def has_current_param_context(self) -> bool:
         pass
-    
-    @abstractstaticmethod
-    def preprocess_param_annotation(self, annotation: Any) -> Any:
-        pass
 
 from graia.broadcast.entities.source import DispatcherSource
 from graia.broadcast.entities.context import ExecutionContext, ParameterContext
