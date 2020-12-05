@@ -3,7 +3,7 @@ import itertools
 from functools import lru_cache
 
 from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface
-from typing import Any, Callable, Generator, Iterator, List, Optional, Tuple, Union, _GenericAlias
+from typing import Any, Callable, Generator, Iterator, List, Optional, Tuple, Union
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import BaseEvent
 
@@ -13,6 +13,7 @@ from graia.broadcast.entities.source import DispatcherSource
 from graia.broadcast.exceptions import OutOfMaxGenerater, RequirementCrashed
 from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
 from graia.broadcast.utilles import is_asyncgener, isgeneratorfunction, run_always_await_safely
+
 
 class EmptyEvent(BaseEvent):
     class Dispatcher:
@@ -135,15 +136,16 @@ class DispatcherInterface(IDispatcherInterface):
 
     def dispatcher_generator(self, 
         source_from: Callable[["DispatcherInterface"], Iterator[DispatcherSource[T_Dispatcher, Any]]] = \
-            lambda x: x.dispatcher_sources
+            lambda x: x.dispatcher_sources,
+        using_always: bool = True
     ) -> Generator[None, None, Tuple[T_Dispatcher, T_Dispatcher_Callable, DispatcherSource]]:
         always_dispatcher = self.execution_contexts[-1].always_dispatchers
         
         for source in source_from(self):
             for dispatcher in source.dispatchers:
-                if dispatcher in always_dispatcher:
+                if using_always and dispatcher in always_dispatcher:
                     always_dispatcher.remove(dispatcher)
-                
+            
                 dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
                 yield (dispatcher, dispatcher_callable, source)
 
@@ -173,26 +175,12 @@ class DispatcherInterface(IDispatcherInterface):
         
         return result
 
-    @staticmethod
-    def preprocess_param_annotation(annotation: Any) -> Tuple[Any, bool]:
-        optional = False
-        if isinstance(annotation, _GenericAlias):
-            if annotation.__origin__ is Union and annotation.__args__[-1] is type(None):
-                # 如果是 Optional, 则它的最后一位应为 NoneType.
-                optional = True
-                annotation = annotation.__args__[0]
-            else:
-                raise TypeError("cannot preprocess this annotation: {0}".format(annotation))
-
-        return (annotation, optional)
-
     async def lookup_param(self,
         name: str, annotation: Any, default: Any,
         enable_extra_return: bool = False
     ) -> Union[Any, Tuple[Any, T_Dispatcher, DispatcherSource, List[T_Dispatcher]]]:
-        annotation, is_optional_param = self.preprocess_param_annotation(annotation)
         self.parameter_contexts.append(ParameterContext(
-            name, annotation, default, [], optional=is_optional_param
+            name, annotation, default, []
         ))
 
         result = None
@@ -218,21 +206,17 @@ class DispatcherInterface(IDispatcherInterface):
                     )))
                 ) if enable_extra_return else result
             else:
-                if is_optional_param:
-                    self.execution_contexts[-1]._index = 0
-                    return
                 raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
         finally:
             for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)]
+                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
+                using_always=False
             ):
                 await self.execute_dispatcher_callable(dispatcher_callable)
 
             self.parameter_contexts.pop()
     
     async def lookup_using_current(self) -> Any:
-        _, is_optional_param = self.preprocess_param_annotation(self.annotation)
-
         result = None
         try:
             for self.execution_contexts[-1]._index, (dispatcher, dispatcher_callable, source) in \
@@ -250,13 +234,11 @@ class DispatcherInterface(IDispatcherInterface):
                 self.execution_contexts[-1]._index = 0
                 return result
             else:
-                if is_optional_param:
-                    self.execution_contexts[-1]._index = 0
-                    return
                 raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
         finally:
             for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)]
+                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
+                using_always=False
             ):
                 await self.execute_dispatcher_callable(dispatcher_callable)
 
@@ -264,9 +246,8 @@ class DispatcherInterface(IDispatcherInterface):
         name: str, annotation: Any, default: Any,
         enable_extra_return: bool = False
     ) -> Union[Any, Tuple[Any, T_Dispatcher, DispatcherSource, List[T_Dispatcher]]]:
-        annotation, is_optional_param = self.preprocess_param_annotation(annotation)
         self.parameter_contexts.append(ParameterContext(
-            name, annotation, default, [], optional=is_optional_param
+            name, annotation, default, []
         ))
 
         result = None
@@ -292,22 +273,19 @@ class DispatcherInterface(IDispatcherInterface):
                     )))
                 ) if enable_extra_return else result
             else:
-                if is_optional_param:
-                    self.execution_contexts[-1]._index = 0
-                    return
                 raise RequirementCrashed("the dispatching requirement crashed: ", self.name, self.annotation, self.default)
         finally:
             for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)]
+                lambda x: [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
+                using_always=False
             ):
                 await self.execute_dispatcher_callable(dispatcher_callable)
 
             self.parameter_contexts.pop()
 
     async def lookup_by_directly(self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any) -> Any:
-        annotation, is_optional_param = self.preprocess_param_annotation(annotation)
         self.parameter_contexts.append(ParameterContext(
-            name, annotation, default, [], optional=is_optional_param
+            name, annotation, default, []
         ))
 
         dispatcher_callable = self.dispatcher_callable_detector(dispatcher)

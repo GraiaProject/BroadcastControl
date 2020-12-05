@@ -30,10 +30,9 @@ class ExecutionContext:
     return self.source.dispatchers
 
 class ParameterContext:
-  def __init__(self, name, annotation, default, dispatchers, optional=False) -> None:
+  def __init__(self, name, annotation, default, dispatchers) -> None:
     self.name, self.annotation, self.default, self.source = \
       name, annotation, default, DispatcherSource(dispatchers, weakref.ref(self))
-    self.optional = optional
   
   def __repr__(self) -> str:
     return "<ParameterContext name={0} annotation={1} default={2} locald={3}"\
@@ -45,8 +44,6 @@ class ParameterContext:
   name: str
   annotation: Any
   default: Any
-
-  optional: bool
 
   @property
   def dispatchers(self) -> List[T_Dispatcher]:
