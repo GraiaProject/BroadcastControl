@@ -2,6 +2,7 @@ from typing import Any, Callable, List
 from pydantic import BaseModel
 from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface
 
+
 class MappingRule(BaseModel):
     mode: Callable[[IDispatcherInterface], bool]
     value: Any

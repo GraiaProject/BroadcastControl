@@ -3,8 +3,10 @@ from typing import Callable, Dict, List, Tuple, Union
 from ..typing import T_Dispatcher
 from .decorater import Decorater
 
+
 class ExecTarget:
-    def __init__(self,
+    def __init__(
+        self,
         callable: Callable,
         inline_dispatchers: List[T_Dispatcher] = None,
         headless_decoraters: List[Decorater] = None,

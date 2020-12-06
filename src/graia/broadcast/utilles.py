@@ -14,14 +14,17 @@ async def run_always_await(any_callable):
     else:
         return any_callable
 
+
 async def run_always_await_safely(callable, *args, **kwargs):
     if iscoroutinefunction(callable):
         return await callable(*args, **kwargs)
     return callable(*args, **kwargs)
 
+
 def printer(value):
     print(value)
     return value
+
 
 def group_dict(iw: IterWrapper, key: Callable[[Any], Any]):
     temp = {}
@@ -31,44 +34,55 @@ def group_dict(iw: IterWrapper, key: Callable[[Any], Any]):
         temp[k].append(i)
     return temp
 
+
 @lru_cache(None)
 def argument_signature(callable_target):
     return [
-        (name,
-        param.annotation if param.annotation != inspect._empty else None,
-        param.default if param.default != inspect._empty else None)
+        (
+            name,
+            param.annotation if param.annotation != inspect._empty else None,
+            param.default if param.default != inspect._empty else None,
+        )
         for name, param in dict(inspect.signature(callable_target).parameters).items()
     ]
 
+
 cache_size = None
+
 
 @lru_cache(cache_size)
 def is_asyncgener(o):
     return inspect.isasyncgenfunction(o)
 
+
 @lru_cache(cache_size)
 def isgeneratorfunction(o):
     return inspect.isgeneratorfunction(o)
+
 
 @lru_cache(cache_size)
 def iscoroutinefunction(o):
     return inspect.iscoroutinefunction(o)
 
+
 @lru_cache(cache_size)
 def isasyncgen(o):
     return inspect.isasyncgen(o)
 
+
 @lru_cache(cache_size)
 def isgenerator(o):
     return inspect.isgenerator(o)
+
 
 async def whatever_gen_once(any_gen, *args, **kwargs):
     if inspect.isasyncgenfunction(any_gen):
         # 如果是异步生成器函数
         async for i in any_gen(*args, **kwargs):
             return i
-    elif (inspect.isgeneratorfunction(any_gen) and \
-        not inspect.iscoroutinefunction(any_gen)):
+    elif inspect.isgeneratorfunction(any_gen) and not inspect.iscoroutinefunction(
+        any_gen
+    ):
         # 同步生成器
         for i in any_gen(*args, **kwargs):
             return i
@@ -79,10 +93,12 @@ async def whatever_gen_once(any_gen, *args, **kwargs):
         async for i in any_gen:
             return i
 
+
 def flat_yield_from(l):
     for i in l:
         if type(i) == list:
             yield from i
+
 
 @lru_cache(None)
 def dispatcher_mixin_handler(dispatcher: BaseDispatcher) -> List[BaseDispatcher]:
@@ -96,15 +112,16 @@ def dispatcher_mixin_handler(dispatcher: BaseDispatcher) -> List[BaseDispatcher]
             result.append(i)
     return result
 
+
 class as_sliceable:
     def __init__(self, iterable) -> None:
         self.iterable = iterable
-    
+
     def __getitem__(self, item: Union[slice, int]) -> Any:
         if isinstance(item, slice):
             return itertools.islice(self.iterable, item.start, item.stop, item.step)
         else:
-            return list(itertools.islice(self.iterable, item, item+1, None))[0]
-    
+            return list(itertools.islice(self.iterable, item, item + 1, None))[0]
+
     def __iter__(self):
         return self.iterable

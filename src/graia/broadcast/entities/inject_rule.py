@@ -5,6 +5,7 @@ from .event import BaseEvent
 from .dispatcher import BaseDispatcher
 from ..abstract.interfaces.dispatcher import IDispatcherInterface
 
+
 class BaseRule(metaclass=abc.ABCMeta):
     target_dispatcher: BaseDispatcher
 
@@ -15,10 +16,16 @@ class BaseRule(metaclass=abc.ABCMeta):
     def check(self, event: BaseEvent, dii: IDispatcherInterface) -> bool:
         pass
 
+
 class SpecialEventType(BaseRule):
     target_dispatcher: BaseDispatcher
 
-    def __init__(self, event_type: Type[BaseEvent], target_dispatcher: BaseDispatcher, specially: bool = False) -> None:
+    def __init__(
+        self,
+        event_type: Type[BaseEvent],
+        target_dispatcher: BaseDispatcher,
+        specially: bool = False,
+    ) -> None:
         self.target_dispatcher = target_dispatcher
         self.event_type = event_type
         self.specially = specially

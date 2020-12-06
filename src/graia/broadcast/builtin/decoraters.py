@@ -6,6 +6,7 @@ from ..interfaces.decorater import DecoraterInterface
 import inspect
 from ..exceptions import InvaildContextTarget
 
+
 class Depend(Decorater):
     pre = True
     depend_callable: Callable
@@ -28,12 +29,18 @@ class Depend(Decorater):
             target=self.depend_callable,
             event=interface.event,
             post_exception_event=True,
-            use_inline_generator=True
+            use_inline_generator=True,
         )
 
-        result_is_asyncgen = [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result)
-        result_is_generator = [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result)
-        if result_is_asyncgen or (result_is_generator and not iscoroutinefunction(self.depend_callable)):
+        result_is_asyncgen = [inspect.isasyncgen, isasyncgen][
+            isinstance(result, Hashable)
+        ](result)
+        result_is_generator = [inspect.isgenerator, isgenerator][
+            isinstance(result, Hashable)
+        ](result)
+        if result_is_asyncgen or (
+            result_is_generator and not iscoroutinefunction(self.depend_callable)
+        ):
             if result_is_generator(result):
                 for i in result:
                     yield Force(i)
@@ -46,6 +53,7 @@ class Depend(Decorater):
             yield Force(result)
             return
 
+
 class Middleware(Decorater):
     pre = True
     context_target: Any
@@ -54,17 +62,23 @@ class Middleware(Decorater):
         self.context_target = context_target
 
     async def target(self, interface: DecoraterInterface):
-        if all([
-            hasattr(self.context_target, "__aenter__"),
-            hasattr(self.context_target, "__aexit__")
-        ]):
+        if all(
+            [
+                hasattr(self.context_target, "__aenter__"),
+                hasattr(self.context_target, "__aexit__"),
+            ]
+        ):
             async with self.context_target as mw_value:
                 yield mw_value
-        elif all([
-            hasattr(self.context_target, "__enter__"),
-            hasattr(self.context_target, "__exit__")
-        ]):
+        elif all(
+            [
+                hasattr(self.context_target, "__enter__"),
+                hasattr(self.context_target, "__exit__"),
+            ]
+        ):
             with self.context_target as mw_value:
                 yield mw_value
         else:
-            raise InvaildContextTarget(self.context_target, "is not vaild as a context target.")
+            raise InvaildContextTarget(
+                self.context_target, "is not vaild as a context target."
+            )

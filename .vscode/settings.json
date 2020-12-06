@@ -3,5 +3,6 @@
     "python.linting.enabled": false,
     "python.linting.pylintEnabled": true,
     "python.linting.banditEnabled": false,
-    "maven.view": "hierarchical"
+    "maven.view": "hierarchical",
+    "python.formatting.provider": "black"
 }

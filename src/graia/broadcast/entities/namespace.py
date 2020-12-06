@@ -11,7 +11,7 @@ class Namespace(BaseModel):
 
     priority: int = 0
     default: bool = False
-    
+
     hide: bool = False
     disabled: bool = False
 
