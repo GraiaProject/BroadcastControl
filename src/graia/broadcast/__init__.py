@@ -16,9 +16,10 @@ from typing import (
 
 from iterwrapper import IterWrapper as iw
 
-from graia.broadcast.entities.exectarget import ExecTarget
+from .typing import T_Dispatcher, T_Dispatcher_Callable
 
-from .abstract.interfaces.dispatcher import IDispatcherInterface
+from .entities.exectarget import ExecTarget
+
 from .interfaces.dispatcher import DispatcherInterface
 from .entities.decorater import Decorater
 from .entities.dispatcher import BaseDispatcher
@@ -39,7 +40,7 @@ from .exceptions import (
 )
 from .interfaces.decorater import DecoraterInterface
 from .utilles import (
-    argument_signature,
+    argument_signature, debug_decorator,
     dispatcher_mixin_handler,
     group_dict,
     isasyncgen,
@@ -48,7 +49,6 @@ from .utilles import (
 )
 from .typing import T_Dispatcher
 from .zone import Zone
-
 
 class Broadcast:
     loop: asyncio.AbstractEventLoop
@@ -120,12 +120,10 @@ class Broadcast:
         grouped: Dict[int, List[Listener]] = group_dict(
             listener_generator, lambda x: x.priority
         )
-        for current_priority in sorted(grouped.keys()):
-            current_group = grouped[current_priority]
+        for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
+            coros = [self.Executor(target=i, event=event) for i in current_group]
             try:
-                await asyncio.gather(
-                    *[self.Executor(target=i, event=event) for i in current_group]
-                )
+                await asyncio.gather(*coros)
             except Exception as e:
                 if isinstance(e, PropagationCancelled):
                     break
@@ -246,6 +244,8 @@ class Broadcast:
                 ] = target.dispatcher_statistics["statistics"]
             else:
                 whole_statistics = {}
+
+            await dii.exec_lifecycle("beforeDispatch")
             try:
                 for name, annotation, default in argument_signature(target_callable):
                     statistics: Dict[
@@ -321,6 +321,10 @@ class Broadcast:
                 if post_exception_event:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
+            finally:
+                await dii.exec_lifecycle("afterDispatch")
+            
+            await dii.exec_lifecycle("beforeExecution")
 
             try:
                 result = await run_always_await_safely(
@@ -336,6 +340,8 @@ class Broadcast:
                 if post_exception_event:  # 如果没有referrer, 则广播事件, 如果有则向上抛出(防止重复抛出事件)
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
+            finally:
+                await dii.exec_lifecycle("afterExecution")
 
             gener = None
             if [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result):
@@ -365,7 +371,7 @@ class Broadcast:
             return result
 
     def postEvent(self, event: BaseEvent):
-        self.loop.create_task(
+        asyncio.ensure_future(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,

@@ -1,7 +1,6 @@
 from iterwrapper import IterWrapper
 from pydantic.main import ModelMetaclass
 
-from .dispatcher import BaseDispatcher
 import copy
 
 
@@ -35,7 +34,9 @@ class EventMeta(ModelMetaclass):
 
 
 class BaseEvent(metaclass=EventMeta):
-    Dispatcher: BaseDispatcher
+    Dispatcher: "BaseDispatcher"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+from .dispatcher import BaseDispatcher

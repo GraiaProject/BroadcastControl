@@ -47,6 +47,10 @@ class TestEvent(BaseEvent):
             elif interface.annotation == str:
                 yield 12
 
+        @staticmethod
+        def afterDispatch(interface: "IDispatcherInterface"):
+            print("in ad.")
+
 event = TestEvent()
 loop = asyncio.get_event_loop()
 #loop.set_debug(True)
@@ -58,35 +62,36 @@ l = asyncio.Lock()
 
 @broadcast.receiver(TestEvent)
 async def r(u, v: str, p: "123"):
+    #print("???")
     global i
-    async with l:
-        i += 1
+    i += 1
 
 async def main():
-    #print("将在 5 s 后开始测试.")
-    #for i in range(1, 6):
-    #    print(i)
-    #    await asyncio.sleep(1)
-    #print("测试开始.", start)
-    #for _ in range(100000):
-    #    broadcast.postEvent(TestEvent())
-    #end = time.time()
-    #print(f"事件广播完毕, 总共 10000 个, 当前时间: {end}, 用时: {end - start - 5}")
-    
-    listener = broadcast.getListener(r)
+    """
     start = time.time()
-    await asyncio.gather(*[broadcast.Executor(
-        listener, event,
-        use_dispatcher_statistics=True, use_reference_optimization=True
-    ) for _ in range(10000)])
+    print("将在 5 s 后开始测试.")
+    for i in range(1, 6):
+        print(i)
+        await asyncio.sleep(1)
+    print("测试开始.", start)
+    event = TestEvent()
+    for _ in range(10):
+        broadcast.postEvent(event)
+    await broadcast.Executor(r, event)
     end = time.time()
-    print(end - start, "预热完毕..?")
-    await asyncio.gather(*[broadcast.Executor(
-        listener, event,
-        use_dispatcher_statistics=True, use_reference_optimization=True
-    ) for _ in range(10000)])
-    print(time.time() - end)
-    debug(dispatcher_mixin_handler.cache_info())
+    print(f"事件广播完毕, 总共 10000 个, 当前时间: {end}, 用时: {end - start - 5}")
+    """
+
+    event = TestEvent()
+    
+    #await asyncio.gather(*[broadcast.layered_scheduler(
+    #    listener_generator=broadcast.default_listener_generator(event.__class__),
+    #    event=event,
+    #) for _ in range(100)])
+    for _ in range(1):
+        broadcast.postEvent(event)
+
+    #input()
     #debug(listener.dispatcher_statistics)
     #print(i)
     """
@@ -106,3 +111,11 @@ async def main():
     print("可能成功了...结果已经打印")"""
 
 loop.run_until_complete(main())
+loop.run_until_complete(asyncio.sleep(5))
+#objgraph.show_most_common_types(30)
+#time.sleep(30)
+#tasks = bjgraph.by_type('Task')
+#print(len(tasks), i)
+#print(objgraph.find_ref_chain(tasks[0], objgraph.is_proper_module))
+#debug(tasks)
+#import pdb; pdb.set_trace()

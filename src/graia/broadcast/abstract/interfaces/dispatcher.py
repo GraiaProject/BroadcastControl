@@ -1,10 +1,13 @@
 from abc import ABCMeta, abstractmethod, abstractproperty, abstractstaticmethod
-from typing import Any, AsyncGenerator, Generator, List, Optional, Tuple, Union
-from graia.broadcast.entities.dispatcher import BaseDispatcher
-from graia.broadcast.entities.event import BaseEvent
+import traceback
+from typing import Any, AsyncGenerator, Dict, Generator, Iterable, List, Optional, Tuple, Union
 
-from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
+from graia.broadcast.utilles import run_always_await_safely
 
+DEFAULT_LIFECYCLE_NAMES = (
+    "beforeDispatch", "afterDispatch",
+    "beforeExecution", "afterExecution"
+)
 
 class IDispatcherInterface(metaclass=ABCMeta):
     broadcast: "Broadcast"
@@ -18,8 +21,8 @@ class IDispatcherInterface(metaclass=ABCMeta):
     @abstractmethod
     def start_execution(
         self,
-        event: BaseEvent,
-        dispatchers: List[T_Dispatcher],
+        event: "BaseEvent",
+        dispatchers: List["T_Dispatcher"],
         use_inline_generator: bool = False,
     ):
         pass
@@ -32,7 +35,8 @@ class IDispatcherInterface(metaclass=ABCMeta):
     async def alive_dispatcher_killer(self):
         pass
 
-    def inject_local_raw(self, *dispatchers: List[T_Dispatcher], source: Any = None):
+    def inject_local_raw(self, *dispatchers: List["T_Dispatcher"], source: Any = None):
+        # 为什么没有 flush: 因为这里的 lifecycle 是无意义的.
         for dispatcher in dispatchers[::-1]:
             self.parameter_contexts[-1].dispatchers.insert(0, dispatcher)
         always_dispatchers = self.execution_contexts[-1].always_dispatchers
@@ -41,37 +45,80 @@ class IDispatcherInterface(metaclass=ABCMeta):
             if getattr(i, "always", False):
                 always_dispatchers.add(i)
 
-    def inject_execution_raw(self, *dispatchers: List[T_Dispatcher]):
+    def inject_execution_raw(self, *dispatchers: List["T_Dispatcher"]):
         for dispatcher in dispatchers:
             self.execution_contexts[-1].dispatchers.insert(0, dispatcher)
         always_dispatchers = self.execution_contexts[-1].always_dispatchers
 
+        self.flush_lifecycle_refs(dispatchers)
         for i in dispatchers:
             if getattr(i, "always", False):
                 always_dispatchers.add(i)
 
-    def inject_global_raw(self, *dispatchers: List[T_Dispatcher]):
+    def inject_global_raw(self, *dispatchers: List["T_Dispatcher"]):
         # self.dispatchers.extend(dispatchers)
         for dispatcher in dispatchers[::-1]:
             self.execution_contexts[0].dispatchers.insert(1, dispatcher)
         always_dispatchers = self.execution_contexts[-1].always_dispatchers
 
+        self.flush_lifecycle_refs(dispatchers)
         for i in dispatchers:
             if getattr(i, "always", False):
                 always_dispatchers.add(i)
+    
+    @staticmethod
+    def get_lifecycle_refs(dispatcher: "T_Dispatcher", lifecycle_names: Iterable[str] = DEFAULT_LIFECYCLE_NAMES) -> Optional[Dict[str, List]]:
+        from graia.broadcast.entities.dispatcher import BaseDispatcher
+
+        lifecycle_refs: Dict[str, List] = {}
+        if not isinstance(dispatcher, (BaseDispatcher, type)):
+            return
+
+        for name in lifecycle_names:
+            lifecycle_refs.setdefault(name, [])
+            abstract_lifecycle_func = getattr(BaseDispatcher, name)
+            unbound_attr = getattr(dispatcher, name, None)
+
+            if unbound_attr is None or unbound_attr is abstract_lifecycle_func:
+                continue
+
+            lifecycle_refs[name].append(unbound_attr)
+
+        return lifecycle_refs
+
+    def flush_lifecycle_refs(self, dispatchers: List["T_Dispatcher"] = None, lifecycle_names: Iterable[str] = DEFAULT_LIFECYCLE_NAMES):
+        from graia.broadcast.entities.dispatcher import BaseDispatcher
+
+        lifecycle_refs = self.execution_contexts[-1].lifecycle_refs
+        for dispatcher in (dispatchers or self.dispatcher_pure_generator()):
+            if not isinstance(dispatcher, (BaseDispatcher, type)):
+                continue
+
+            for name, value in self.get_lifecycle_refs(dispatcher, lifecycle_names).items():
+                lifecycle_refs.setdefault(name, [])
+                lifecycle_refs[name].extend(value)
+    
+    async def exec_lifecycle(self, lifecycle_name: str):
+        lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(lifecycle_name)
+        if lifecycle_funcs:
+            for func in lifecycle_funcs:
+                try:
+                    await run_always_await_safely(func, self)
+                except:
+                    traceback.print_exc()
 
     @abstractproperty
     def dispatcher_sources(self) -> List["DispatcherSource"]:
         pass
 
     @abstractmethod
-    def dispatcher_pure_generator(self) -> Generator[None, None, T_Dispatcher]:
+    def dispatcher_pure_generator(self) -> Generator[None, None, "T_Dispatcher"]:
         pass
 
     @abstractmethod
     def dispatcher_generator(
         self,
-    ) -> Generator[None, None, Tuple[T_Dispatcher, T_Dispatcher_Callable, Any]]:
+    ) -> Generator[None, None, Tuple["T_Dispatcher", "T_Dispatcher_Callable", Any]]:
         pass
 
     @abstractproperty
@@ -91,16 +138,16 @@ class IDispatcherInterface(metaclass=ABCMeta):
         pass
 
     @abstractproperty
-    def global_dispatcher(self) -> List[T_Dispatcher]:
+    def global_dispatcher(self) -> List["T_Dispatcher"]:
         pass
 
     @abstractproperty
-    def event(self) -> BaseEvent:
+    def event(self) -> "BaseEvent":
         pass
 
     @abstractmethod
     async def execute_dispatcher_callable(
-        self, dispatcher_callable: T_Dispatcher_Callable
+        self, dispatcher_callable: "T_Dispatcher_Callable"
     ) -> Any:
         pass
 
@@ -114,13 +161,13 @@ class IDispatcherInterface(metaclass=ABCMeta):
 
     @abstractmethod
     async def lookup_by(
-        self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any
+        self, dispatcher: "T_Dispatcher", name: str, annotation: Any, default: Any
     ) -> Any:
         pass
 
     @abstractmethod
     async def lookup_by_directly(
-        self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any
+        self, dispatcher: "T_Dispatcher", name: str, annotation: Any, default: Any
     ) -> Any:
         pass
 
@@ -132,6 +179,7 @@ class IDispatcherInterface(metaclass=ABCMeta):
     def has_current_param_context(self) -> bool:
         pass
 
-
-from graia.broadcast.entities.source import DispatcherSource
+from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
 from graia.broadcast.entities.context import ExecutionContext, ParameterContext
+from graia.broadcast.entities.source import DispatcherSource
+from graia.broadcast.entities.event import BaseEvent

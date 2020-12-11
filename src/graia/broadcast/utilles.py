@@ -125,3 +125,56 @@ class as_sliceable:
 
     def __iter__(self):
         return self.iterable
+
+import sys
+
+class debug_context():
+    """ Debug context to trace any function calls inside the context """
+
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        print('Entering Debug Decorated func')
+        # Set the trace function to the trace_calls function
+        # So all events are now traced
+        sys.settrace(self.trace_calls)
+
+    def __exit__(self, *args, **kwargs):
+        # Stop tracing all events
+        sys.settrace = None
+
+    def trace_calls(self, frame, event, arg): 
+        # We want to only trace our call to the decorated function
+        if event != 'call':
+            return
+        elif frame.f_code.co_name != self.name:
+            return
+        # return the trace function to use when you go into that 
+        # function call
+        return self.trace_lines
+
+    def trace_lines(self, frame, event, arg):
+        # If you want to print local variables each line
+        # keep the check for the event 'line'
+        # If you want to print local variables only on return
+        # check only for the 'return' event
+        if event not in ['line', 'return']:
+            return
+        co = frame.f_code
+        func_name = co.co_name
+        line_no = frame.f_lineno
+        filename = co.co_filename
+        #line_text = open(filename, "r", encoding="utf-8").readlines()[line_no-1][:-1]
+        local_vars = frame.f_locals
+        print ('callable [{0}] [{1}] on {2}'.format(func_name, 
+                                                  event,
+                                                  line_no))
+
+def debug_decorator(func):
+    """ Debug decorator to call the function within the debug context """
+    def decorated_func(*args, **kwargs):
+        with debug_context(func.__name__):
+            return_value = func(*args, **kwargs)
+        return return_value
+    return decorated_func

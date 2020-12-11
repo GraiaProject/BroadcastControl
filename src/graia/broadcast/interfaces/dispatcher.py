@@ -85,6 +85,7 @@ class DispatcherInterface(IDispatcherInterface):
         # 这里本来应该要让所有 always 集中下的......因为性能实在是太过惨淡, 故放弃
         self.execution_contexts.append(current_exec_context)
         self.alive_generator_dispatcher.append([])
+        self.flush_lifecycle_refs()
         return self
 
     async def exit_current_execution(self):
