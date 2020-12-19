@@ -9,6 +9,7 @@ from ..utilles import (
     iscoroutinefunction,
     isgeneratorfunction,
     run_always_await_safely,
+    cached_isinstance,
 )
 from ..abstract.interfaces.dispatcher import IDispatcherInterface
 
@@ -37,7 +38,7 @@ class DecoraterInterface(BaseDispatcher):
         return self.dispatcher_interface.event
 
     async def catch(self, interface: IDispatcherInterface):
-        if isinstance(interface.default, Decorater):
+        if cached_isinstance(interface.default, Decorater):
             decorater: Decorater = interface.default
             if not decorater.pre:
                 # 作为 装饰

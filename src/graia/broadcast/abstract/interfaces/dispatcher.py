@@ -1,13 +1,28 @@
 from abc import ABCMeta, abstractmethod, abstractproperty, abstractstaticmethod
+from functools import lru_cache
+from inspect import ismethod
 import traceback
-from typing import Any, AsyncGenerator, Dict, Generator, Iterable, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
-from graia.broadcast.utilles import run_always_await_safely
+from graia.broadcast.utilles import run_always_await_safely, cached_getattr
 
 DEFAULT_LIFECYCLE_NAMES = (
-    "beforeDispatch", "afterDispatch",
-    "beforeExecution", "afterExecution"
+    "beforeDispatch",
+    "afterDispatch",
+    "beforeExecution",
+    "afterExecution",
 )
+
 
 class IDispatcherInterface(metaclass=ABCMeta):
     broadcast: "Broadcast"
@@ -42,7 +57,7 @@ class IDispatcherInterface(metaclass=ABCMeta):
         always_dispatchers = self.execution_contexts[-1].always_dispatchers
 
         for i in dispatchers:
-            if getattr(i, "always", False):
+            if cached_getattr(i, "always", False):
                 always_dispatchers.add(i)
 
     def inject_execution_raw(self, *dispatchers: List["T_Dispatcher"]):
@@ -52,7 +67,7 @@ class IDispatcherInterface(metaclass=ABCMeta):
 
         self.flush_lifecycle_refs(dispatchers)
         for i in dispatchers:
-            if getattr(i, "always", False):
+            if cached_getattr(i, "always", False):
                 always_dispatchers.add(i)
 
     def inject_global_raw(self, *dispatchers: List["T_Dispatcher"]):
@@ -63,49 +78,68 @@ class IDispatcherInterface(metaclass=ABCMeta):
 
         self.flush_lifecycle_refs(dispatchers)
         for i in dispatchers:
-            if getattr(i, "always", False):
+            if cached_getattr(i, "always", False):
                 always_dispatchers.add(i)
-    
+
     @staticmethod
-    def get_lifecycle_refs(dispatcher: "T_Dispatcher", lifecycle_names: Iterable[str] = DEFAULT_LIFECYCLE_NAMES) -> Optional[Dict[str, List]]:
+    @lru_cache
+    def get_lifecycle_refs(
+        dispatcher: "T_Dispatcher",
+    ) -> Optional[Dict[str, List]]:
         from graia.broadcast.entities.dispatcher import BaseDispatcher
 
         lifecycle_refs: Dict[str, List] = {}
         if not isinstance(dispatcher, (BaseDispatcher, type)):
             return
 
-        for name in lifecycle_names:
+        for name in DEFAULT_LIFECYCLE_NAMES:
             lifecycle_refs.setdefault(name, [])
-            abstract_lifecycle_func = getattr(BaseDispatcher, name)
+            abstract_lifecycle_func = cached_getattr(BaseDispatcher, name)
             unbound_attr = getattr(dispatcher, name, None)
 
-            if unbound_attr is None or unbound_attr is abstract_lifecycle_func:
+            if unbound_attr is None:
+                continue
+
+            orig_call = unbound_attr
+            while ismethod(orig_call):
+                orig_call = unbound_attr.__func__
+
+            if orig_call is abstract_lifecycle_func:
                 continue
 
             lifecycle_refs[name].append(unbound_attr)
 
         return lifecycle_refs
 
-    def flush_lifecycle_refs(self, dispatchers: List["T_Dispatcher"] = None, lifecycle_names: Iterable[str] = DEFAULT_LIFECYCLE_NAMES):
+    def flush_lifecycle_refs(
+        self,
+        dispatchers: List["T_Dispatcher"] = None,
+    ):
         from graia.broadcast.entities.dispatcher import BaseDispatcher
 
         lifecycle_refs = self.execution_contexts[-1].lifecycle_refs
-        for dispatcher in (dispatchers or self.dispatcher_pure_generator()):
-            if not isinstance(dispatcher, (BaseDispatcher, type)):
+        if dispatchers is None and lifecycle_refs:  # 已经刷新.
+            return
+
+        for dispatcher in dispatchers or self.dispatcher_pure_generator():
+            if (
+                not isinstance(dispatcher, BaseDispatcher)
+                or dispatcher.__class__ is type
+            ):
                 continue
 
-            for name, value in self.get_lifecycle_refs(dispatcher, lifecycle_names).items():
+            for name, value in self.get_lifecycle_refs(dispatcher).items():
                 lifecycle_refs.setdefault(name, [])
                 lifecycle_refs[name].extend(value)
-    
+
     async def exec_lifecycle(self, lifecycle_name: str):
         lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(lifecycle_name)
-        if lifecycle_funcs:
-            for func in lifecycle_funcs:
-                try:
+        if lifecycle_funcs is not None:
+            try:
+                for func in lifecycle_funcs:
                     await run_always_await_safely(func, self)
-                except:
-                    traceback.print_exc()
+            except:
+                traceback.print_exc()
 
     @abstractproperty
     def dispatcher_sources(self) -> List["DispatcherSource"]:
@@ -178,6 +212,7 @@ class IDispatcherInterface(metaclass=ABCMeta):
     @abstractproperty
     def has_current_param_context(self) -> bool:
         pass
+
 
 from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
 from graia.broadcast.entities.context import ExecutionContext, ParameterContext

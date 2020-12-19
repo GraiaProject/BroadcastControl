@@ -1,7 +1,9 @@
 import asyncio
+from functools import lru_cache
 import inspect
 import traceback
 from typing import (
+    Any,
     Callable,
     Dict,
     Generator,
@@ -40,15 +42,18 @@ from .exceptions import (
 )
 from .interfaces.decorater import DecoraterInterface
 from .utilles import (
-    argument_signature, debug_decorator,
+    argument_signature,
     dispatcher_mixin_handler,
     group_dict,
     isasyncgen,
     isgenerator,
+    printer,
     run_always_await_safely,
+    cached_isinstance,
 )
 from .typing import T_Dispatcher
 from .zone import Zone
+
 
 class Broadcast:
     loop: asyncio.AbstractEventLoop
@@ -125,7 +130,7 @@ class Broadcast:
             try:
                 await asyncio.gather(*coros)
             except Exception as e:
-                if isinstance(e, PropagationCancelled):
+                if cached_isinstance(e, PropagationCancelled):
                     break
 
     async def Executor(
@@ -148,8 +153,8 @@ class Broadcast:
     ):
         from .builtin.event import ExceptionThrowed
 
-        is_exectarget = isinstance(target, ExecTarget)
-        is_listener = isinstance(target, Listener)
+        is_exectarget = cached_isinstance(target, ExecTarget)
+        is_listener = cached_isinstance(target, Listener)
 
         use_dispatcher_statistics = (
             self.use_dispatcher_statistics or use_dispatcher_statistics
@@ -199,7 +204,7 @@ class Broadcast:
                     0
                 ].source.dispatchers.insert(0, dei)
             else:
-                if not isinstance(catched_first_dispatcher, DecoraterInterface):
+                if not cached_isinstance(catched_first_dispatcher, DecoraterInterface):
                     dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
                     self.dispatcher_interface.execution_contexts[
                         0
@@ -209,24 +214,11 @@ class Broadcast:
             if enableInternalAccess or (
                 is_exectarget and target.enable_internal_access
             ):
-                internal_access_mapping = {
-                    Broadcast: self,
-                    DispatcherInterface: dii,
-                    **(
-                        {  # 当 target 为 Listener 时的特有解析
-                            target.__class__: target,
-                        }
-                        if is_exectarget
-                        else {}
-                    ),
-                    **(
-                        {
-                            Namespace: target.namespace,
-                        }
-                        if is_listener
-                        else {}
-                    ),
-                }
+                internal_access_mapping = {Broadcast: self, DispatcherInterface: dii}
+                if is_exectarget:
+                    internal_access_mapping[target.__class__] = target
+                if is_listener:
+                    internal_access_mapping[Namespace] = target.namespace
 
                 @dii.inject_execution_raw
                 def _(interface: DispatcherInterface):
@@ -305,7 +297,6 @@ class Broadcast:
                         parameter_compile_result[name] = await dii.lookup_param(
                             name, annotation, default
                         )
-
                 if is_exectarget:
                     if target.headless_decoraters:
                         for hl_d in target.headless_decoraters:
@@ -323,7 +314,7 @@ class Broadcast:
                 raise
             finally:
                 await dii.exec_lifecycle("afterDispatch")
-            
+
             await dii.exec_lifecycle("beforeExecution")
 
             try:
@@ -344,7 +335,9 @@ class Broadcast:
                 await dii.exec_lifecycle("afterExecution")
 
             gener = None
-            if [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result):
+            if [inspect.isgenerator, isgenerator][cached_isinstance(result, Hashable)](
+                result
+            ):
                 gener = result
                 try:
                     result = next(gener)
@@ -352,7 +345,9 @@ class Broadcast:
                     result = e.value
                 else:
                     dii.alive_generator_dispatcher[-1].append((gener, False))
-            elif [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result):
+            elif [inspect.isasyncgen, isasyncgen][cached_isinstance(result, Hashable)](
+                result
+            ):
                 gener = result
                 try:
                     result = await gener.__anext__()
@@ -365,7 +360,7 @@ class Broadcast:
                 return result.content
 
             if result.__class__ is RemoveMe:
-                if isinstance(target, Listener):
+                if cached_isinstance(target, Listener):
                     if target in self.listeners:
                         self.listeners.pop(self.listeners.index(target))
             return result
@@ -472,7 +467,7 @@ class Broadcast:
         headless_decoraters: List[Decorater] = [],
         enable_internal_access: bool = False,
     ):
-        if isinstance(event, str):
+        if cached_isinstance(event, str):
             _name = event
             event = self.findEvent(event)
             if not event:

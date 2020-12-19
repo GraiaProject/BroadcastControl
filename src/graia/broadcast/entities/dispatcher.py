@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractstaticmethod
 from typing import List
 
+
 class BaseDispatcher(metaclass=ABCMeta):
     always: bool
     mixin: List["BaseDispatcher"]
@@ -23,5 +24,6 @@ class BaseDispatcher(metaclass=ABCMeta):
 
     def onActive(self, interface: "IDispatcherInterface"):
         pass
+
 
 from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface

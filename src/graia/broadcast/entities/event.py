@@ -39,4 +39,5 @@ class BaseEvent(metaclass=EventMeta):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+
 from .dispatcher import BaseDispatcher

@@ -16,6 +16,7 @@ from graia.broadcast.utilles import (
     is_asyncgener,
     isgeneratorfunction,
     run_always_await_safely,
+    cached_getattr,
 )
 
 
@@ -102,7 +103,7 @@ class DispatcherInterface(IDispatcherInterface):
         self.alive_generator_dispatcher.pop()
 
         for i in self.dispatcher_pure_generator():
-            after_execute_call = getattr(i, "after_execute", None)
+            after_execute_call = cached_getattr(i, "after_execute", None)
             if callable(after_execute_call):
                 try:
                     await run_always_await_safely(after_execute_call)
@@ -155,16 +156,16 @@ class DispatcherInterface(IDispatcherInterface):
 
     def dispatcher_generator(
         self,
-        source_from: Callable[
-            ["DispatcherInterface"], Iterator[DispatcherSource[T_Dispatcher, Any]]
-        ] = lambda x: x.dispatcher_sources,
+        source_from: Iterator[DispatcherSource[T_Dispatcher, Any]] = None,
         using_always: bool = True,
     ) -> Generator[
         None, None, Tuple[T_Dispatcher, T_Dispatcher_Callable, DispatcherSource]
     ]:
         always_dispatcher = self.execution_contexts[-1].always_dispatchers
+        if source_from is None:
+            source_from = self.dispatcher_sources
 
-        for source in source_from(self):
+        for source in source_from:
             for dispatcher in source.dispatchers:
                 if using_always and dispatcher in always_dispatcher:
                     always_dispatcher.remove(dispatcher)
@@ -256,15 +257,19 @@ class DispatcherInterface(IDispatcherInterface):
                     self.default,
                 )
         finally:
-            for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                lambda x: [
-                    DispatcherSource(self.execution_contexts[-1].always_dispatchers)
-                ],
-                using_always=False,
-            ):
-                await self.execute_dispatcher_callable(dispatcher_callable)
+            always_dispatchers = self.execution_contexts[-1].always_dispatchers
+            if always_dispatchers:
+                for (
+                    dispatcher,
+                    dispatcher_callable,
+                    source,
+                ) in self.dispatcher_generator(
+                    [DispatcherSource(always_dispatchers)],
+                    using_always=False,
+                ):
+                    await self.execute_dispatcher_callable(dispatcher_callable)
 
-            self.parameter_contexts.pop()
+                self.parameter_contexts.pop()
 
     async def lookup_using_current(self) -> Any:
         result = None
@@ -301,9 +306,7 @@ class DispatcherInterface(IDispatcherInterface):
                 )
         finally:
             for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                lambda x: [
-                    DispatcherSource(self.execution_contexts[-1].always_dispatchers)
-                ],
+                [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
                 using_always=False,
             ):
                 await self.execute_dispatcher_callable(dispatcher_callable)
@@ -327,9 +330,7 @@ class DispatcherInterface(IDispatcherInterface):
                 source,
             ) in enumerate(
                 itertools.islice(
-                    self.dispatcher_generator(
-                        lambda x: [DispatcherSource([dispatcher])]
-                    ),
+                    self.dispatcher_generator([DispatcherSource([dispatcher])]),
                     start_offset,
                     None,
                     None,
@@ -373,9 +374,7 @@ class DispatcherInterface(IDispatcherInterface):
                 )
         finally:
             for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                lambda x: [
-                    DispatcherSource(self.execution_contexts[-1].always_dispatchers)
-                ],
+                [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
                 using_always=False,
             ):
                 await self.execute_dispatcher_callable(dispatcher_callable)

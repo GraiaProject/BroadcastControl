@@ -62,5 +62,6 @@ class ParameterContext:
     def dispatchers(self) -> List[T_Dispatcher]:
         return self.source.dispatchers
 
+
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from .event import BaseEvent
