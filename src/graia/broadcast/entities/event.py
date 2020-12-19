@@ -1,5 +1,5 @@
 from iterwrapper import IterWrapper
-from pydantic.main import ModelMetaclass
+from pydantic.main import BaseModel, ModelMetaclass
 
 import copy
 
@@ -27,7 +27,7 @@ class EventMeta(ModelMetaclass):
                 mapping["Config"] = copy.copy(mcls.Config)
             else:
                 mapping["Config"].arbitrary_types_allowed = True
-        r = super().__new__(mcls, name, bases, mapping, **kwargs)
+        r = super().__new__(mcls, name, (*bases, BaseModel), mapping, **kwargs)
         if mapping.get("type"):
             r.type = mapping.get("type")
         return r
