@@ -139,11 +139,8 @@ class IDispatcherInterface(metaclass=ABCMeta):
             lifecycle_name, []
         )
         if lifecycle_funcs:
-            try:
-                for func in lifecycle_funcs:
-                    await run_always_await_safely(func, self, *args, **kwargs)
-            except:
-                traceback.print_exc()
+            for func in lifecycle_funcs:
+                await run_always_await_safely(func, self, *args, **kwargs)
 
     @abstractproperty
     def dispatcher_sources(self) -> List["DispatcherSource"]:
