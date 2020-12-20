@@ -63,11 +63,16 @@ broadcast = Broadcast(
 
 
 @broadcast.receiver(TestEvent)
-async def r(u):
+# async def r(u, q: str, i: "13", c: "123"):
+async def r():
     pass
 
 
+import vprof.runner
+
 count = 10000
+enable_vprof = True
+use_reference_optimization = False
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -78,22 +83,24 @@ for _ in range(count):
         broadcast.Executor(
             listener,
             event,
-            use_dispatcher_statistics=True,
-            use_reference_optimization=True,
+            use_dispatcher_statistics=use_reference_optimization,
+            use_reference_optimization=use_reference_optimization,
         )
     )
 s = time.time()
-import vprof.runner
 
-vprof.runner.run(
-    loop.run_until_complete,
-    "p",
-    (asyncio.gather(*tasks),),
-)
-# loop.run_until_complete(asyncio.gather(*tasks))
+if enable_vprof:
+    vprof.runner.run(
+        loop.run_until_complete,
+        "p",
+        (asyncio.gather(*tasks),),
+    )
+else:
+    loop.run_until_complete(asyncio.gather(*tasks))
 # loop.run_until_complete(asyncio.sleep(0.1))
 e = time.time()
 n = e - s
 print(f"used {n}, {count/n}o/s")
 print(cached_isinstance.cache_info())
 print(cached_getattr.cache_info())
+print(listener.dispatcher_statistics)

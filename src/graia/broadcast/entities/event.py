@@ -1,3 +1,5 @@
+from typing import Type, Optional
+from pydantic.dataclasses import dataclass
 from iterwrapper import IterWrapper
 from pydantic.main import BaseModel, ModelMetaclass
 
@@ -5,9 +7,6 @@ import copy
 
 
 class EventMeta(ModelMetaclass):
-    class Config:
-        arbitrary_types_allowed = True
-
     def __new__(mcls, name, bases, mapping, **kwargs):
         if any(
             IterWrapper(bases)
@@ -20,24 +19,24 @@ class EventMeta(ModelMetaclass):
             raise AttributeError(
                 "a event class must have a dispatcher called 'Dispatcher'"
             )
-        if not mapping.get("Config") or not getattr(
-            mapping.get("Config"), "arbitrary_types_allowed", False
-        ):
-            if not mapping.get("Config"):
-                mapping["Config"] = copy.copy(mcls.Config)
-            else:
-                mapping["Config"].arbitrary_types_allowed = True
-        r = super().__new__(mcls, name, (*bases, BaseModel), mapping, **kwargs)
+        r = super().__new__(
+            mcls,
+            name,
+            (BaseModel, *bases) if name == "BaseEvent" else bases,
+            mapping,
+            **kwargs
+        )
         if mapping.get("type"):
             r.type = mapping.get("type")
+        if name != "BaseEvent":
+            r.update_forward_refs()
+            r.Dispatcher = mapping["Dispatcher"]
         return r
 
 
 class BaseEvent(metaclass=EventMeta):
-    Dispatcher: "BaseDispatcher"
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    class Config:
+        arbitrary_types_allowed = True
 
 
 from .dispatcher import BaseDispatcher

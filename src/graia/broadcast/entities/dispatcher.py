@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractstaticmethod
-from typing import List
+from types import TracebackType
+from typing import List, Optional
 
 
 class BaseDispatcher(metaclass=ABCMeta):
@@ -19,7 +20,23 @@ class BaseDispatcher(metaclass=ABCMeta):
     def beforeExecution(self, interface: "IDispatcherInterface"):
         pass
 
-    def afterExecution(self, interface: "IDispatcherInterface"):
+    def afterExecution(
+        self,
+        interface: "IDispatcherInterface",
+        exception: Optional[Exception],
+        tb: Optional[TracebackType],
+    ):
+        pass
+
+    def beforeTargetExec(self, interface: "IDispatcherInterface"):
+        pass
+
+    def afterTargetExec(
+        self,
+        interface: "IDispatcherInterface",
+        exception: Optional[Exception],
+        tb: Optional[TracebackType],
+    ):
         pass
 
     def onActive(self, interface: "IDispatcherInterface"):

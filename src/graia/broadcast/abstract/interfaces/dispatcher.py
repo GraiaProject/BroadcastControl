@@ -21,6 +21,8 @@ DEFAULT_LIFECYCLE_NAMES = (
     "afterDispatch",
     "beforeExecution",
     "afterExecution",
+    "beforeTargetExec",
+    "afterTargetExec",
 )
 
 
@@ -132,12 +134,14 @@ class IDispatcherInterface(metaclass=ABCMeta):
                 lifecycle_refs.setdefault(name, [])
                 lifecycle_refs[name].extend(value)
 
-    async def exec_lifecycle(self, lifecycle_name: str):
-        lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(lifecycle_name)
-        if lifecycle_funcs is not None:
+    async def exec_lifecycle(self, lifecycle_name: str, *args, **kwargs):
+        lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(
+            lifecycle_name, []
+        )
+        if lifecycle_funcs:
             try:
                 for func in lifecycle_funcs:
-                    await run_always_await_safely(func, self)
+                    await run_always_await_safely(func, self, *args, **kwargs)
             except:
                 traceback.print_exc()
 

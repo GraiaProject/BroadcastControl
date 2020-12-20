@@ -1,9 +1,20 @@
+import traceback
 import weakref
 import itertools
 from functools import lru_cache
 
 from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface
-from typing import Any, Callable, Generator, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import BaseEvent
 
@@ -21,7 +32,7 @@ from graia.broadcast.utilles import (
 
 
 class EmptyEvent(BaseEvent):
-    class Dispatcher:
+    class Dispatcher(BaseDispatcher):
         @staticmethod
         def catch(_):
             pass
@@ -80,36 +91,24 @@ class DispatcherInterface(IDispatcherInterface):
         dispatchers: List[T_Dispatcher],
         use_inline_generator: bool = False,
     ) -> "DispatcherInterface":
-        current_exec_context = ExecutionContext(
-            dispatchers, event, use_inline_generator
+        self.execution_contexts.append(
+            ExecutionContext(dispatchers, event, use_inline_generator)
         )
-        # 这里本来应该要让所有 always 集中下的......因为性能实在是太过惨淡, 故放弃
-        self.execution_contexts.append(current_exec_context)
         self.alive_generator_dispatcher.append([])
         self.flush_lifecycle_refs()
         return self
 
     async def exit_current_execution(self):
-        if self.alive_generator_dispatcher[-1]:
+        current_generators = self.alive_generator_dispatcher[-1]
+        if current_generators:
             if self.execution_contexts[-1].inline_generator:
-                if len(self.alive_generator_dispatcher) > 2:  # 防止插入到保护区
-                    self.alive_generator_dispatcher[-2].extend(
-                        self.alive_generator_dispatcher[-1]
-                    )
+                if len(self.alive_generator_dispatcher) > 1:  # 防止插入到保护区
+                    self.alive_generator_dispatcher[-2].extend(current_generators)
                 else:
                     raise ValueError("cannot cast to inline")
             else:
                 await self.alive_dispatcher_killer()
         self.alive_generator_dispatcher.pop()
-
-        for i in self.dispatcher_pure_generator():
-            after_execute_call = cached_getattr(i, "after_execute", None)
-            if callable(after_execute_call):
-                try:
-                    await run_always_await_safely(after_execute_call)
-                except:
-                    pass
-
         self.execution_contexts.pop()
 
     async def alive_dispatcher_killer(self):
@@ -269,7 +268,7 @@ class DispatcherInterface(IDispatcherInterface):
                 ):
                     await self.execute_dispatcher_callable(dispatcher_callable)
 
-                self.parameter_contexts.pop()
+            self.parameter_contexts.pop()
 
     async def lookup_using_current(self) -> Any:
         result = None

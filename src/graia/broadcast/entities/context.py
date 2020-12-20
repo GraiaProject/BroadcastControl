@@ -2,6 +2,7 @@ import weakref
 
 from typing import Any, Callable, Dict, List, Set, Type, Union
 from graia.broadcast.entities.source import DispatcherSource
+from graia.broadcast.utilles import cached_isinstance
 
 from ..typing import T_Dispatcher
 
@@ -27,9 +28,11 @@ class ExecutionContext:
 
         self.lifecycle_refs = {}
         self.always_dispatchers = set()
-        for i in dispatchers:
-            if isinstance(i, BaseDispatcher) and i.always:
-                self.always_dispatchers.add(i)
+        self.always_dispatchers.update(
+            filter(
+                lambda x: cached_isinstance(x, BaseDispatcher) and x.always, dispatchers
+            )
+        )
 
     @property
     def dispatchers(self):

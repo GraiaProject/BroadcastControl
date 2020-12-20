@@ -1,6 +1,7 @@
 import asyncio
 from functools import lru_cache
 import inspect
+import sys
 import traceback
 from typing import (
     Any,
@@ -8,6 +9,7 @@ from typing import (
     Dict,
     Generator,
     Hashable,
+    Iterable,
     List,
     NoReturn,
     Optional,
@@ -102,13 +104,13 @@ class Broadcast:
             if interface.annotation is interface.event.__class__:
                 return interface.event
 
-    def default_listener_generator(self, event_class) -> Listener:
-        yield from (
+    def default_listener_generator(self, event_class) -> Iterable[Listener]:
+        return (
             iw(self.listeners)
             .filter(lambda x: not x.namespace.hide)  # filter for hide
             .filter(lambda x: not x.namespace.disabled)  # filter for disabled
             .filter(lambda x: event_class in x.listening_events)
-            .collect(list)  # collect to a whole list
+            # .collect(list)  # collect to a whole list
         )
 
     def addInjectionRule(self, rule: BaseRule) -> NoReturn:
@@ -170,9 +172,7 @@ class Broadcast:
                 )
 
         if use_dispatcher_statistics and not is_exectarget:
-            raise TypeError(
-                "the feature of dispatcher statistics requires a ExecTarget object as the target."
-            )
+            use_dispatcher_statistics = False
         if use_reference_optimization and not use_dispatcher_statistics:
             raise ValueError(
                 "the feature of reference optimization requires dispatcher statictics."
@@ -237,6 +237,7 @@ class Broadcast:
             else:
                 whole_statistics = {}
 
+            await dii.exec_lifecycle("beforeExecution")
             await dii.exec_lifecycle("beforeDispatch")
             try:
                 for name, annotation, default in argument_signature(target_callable):
@@ -315,7 +316,7 @@ class Broadcast:
             finally:
                 await dii.exec_lifecycle("afterDispatch")
 
-            await dii.exec_lifecycle("beforeExecution")
+            await dii.exec_lifecycle("beforeTargetExec")
 
             try:
                 result = await run_always_await_safely(
@@ -332,7 +333,9 @@ class Broadcast:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
-                await dii.exec_lifecycle("afterExecution")
+                _, exception, tb = sys.exc_info()
+                await dii.exec_lifecycle("afterTargetExec", exception, tb)
+                await dii.exec_lifecycle("afterExecution", exception, tb)
 
             gener = None
             if [inspect.isgenerator, isgenerator][cached_isinstance(result, Hashable)](
@@ -366,7 +369,7 @@ class Broadcast:
             return result
 
     def postEvent(self, event: BaseEvent):
-        asyncio.ensure_future(
+        self.loop.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
