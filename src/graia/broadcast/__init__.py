@@ -338,9 +338,7 @@ class Broadcast:
                 await dii.exec_lifecycle("afterExecution", exception, tb)
 
             gener = None
-            if [inspect.isgenerator, isgenerator][cached_isinstance(result, Hashable)](
-                result
-            ):
+            if [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result):
                 gener = result
                 try:
                     result = next(gener)
@@ -348,9 +346,7 @@ class Broadcast:
                     result = e.value
                 else:
                     dii.alive_generator_dispatcher[-1].append((gener, False))
-            elif [inspect.isasyncgen, isasyncgen][cached_isinstance(result, Hashable)](
-                result
-            ):
+            elif [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result):
                 gener = result
                 try:
                     result = await gener.__anext__()
