@@ -116,4 +116,4 @@ class InterruptControl:
                     return RemoveMe()
                 raise PropagationCancelled()
 
-        return inside_listener
+        return inside_listene

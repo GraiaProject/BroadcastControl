@@ -204,7 +204,7 @@ class Broadcast:
                     0
                 ].source.dispatchers.insert(0, dei)
             else:
-                if not cached_isinstance(catched_first_dispatcher, DecoraterInterface):
+                if not isinstance(catched_first_dispatcher, DecoraterInterface):
                     dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
                     self.dispatcher_interface.execution_contexts[
                         0

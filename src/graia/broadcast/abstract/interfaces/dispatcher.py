@@ -84,7 +84,7 @@ class IDispatcherInterface(metaclass=ABCMeta):
                 always_dispatchers.add(i)
 
     @staticmethod
-    @lru_cache
+    @lru_cache(None)
     def get_lifecycle_refs(
         dispatcher: "T_Dispatcher",
     ) -> Optional[Dict[str, List]]:
