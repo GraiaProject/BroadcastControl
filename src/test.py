@@ -4,9 +4,9 @@ from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 from graia.broadcast.entities.listener import Listener
 from graia.broadcast import Broadcast
-from graia.broadcast.entities.decorater import Decorater
-from graia.broadcast.builtin.decoraters import Depend, Middleware
-from graia.broadcast.interfaces.decorater import DecoraterInterface
+from graia.broadcast.entities.decorator import Decorator
+from graia.broadcast.builtin.decorators import Depend, Middleware
+from graia.broadcast.interfaces.decorator import DecoratorInterface
 from graia.broadcast.exceptions import PropagationCancelled
 from graia.broadcast.interrupt import InterruptControl
 from graia.broadcast.interrupt.waiter import Waiter
@@ -26,7 +26,7 @@ from graia.broadcast.utilles import dispatcher_mixin_handler
 
 class D1(BaseDispatcher):
     @staticmethod
-    def catch(interface: DispatcherInterface):
+    async def catch(interface: DispatcherInterface):
         if interface.annotation == "123":
             return random.random()
 
@@ -38,6 +38,7 @@ class D2(BaseDispatcher):
     async def catch(interface: DispatcherInterface):
         if interface.annotation == "13":
             r = await interface.lookup_param(interface.name, "123", interface.default)
+
             return r
 
 
@@ -46,7 +47,7 @@ class TestEvent(BaseEvent):
         mixin = [D2]
 
         @staticmethod
-        def catch(interface: DispatcherInterface):
+        async def catch(interface: DispatcherInterface):
             if interface.name == "u":
                 yield 1
             elif interface.annotation == str:
@@ -63,16 +64,17 @@ broadcast = Broadcast(
 
 
 @broadcast.receiver(TestEvent)
-# async def r(u, q: str, i: "13", c: "123"):
+# async def r(a: "123", b: "123", c: "123", d: "123", e: "123", fc: "123", gc: "123", hc: "123"):
 async def r():
+    # print(locals())
     pass
 
 
 import vprof.runner
 
-count = 10000
-enable_vprof = True
-use_reference_optimization = False
+count = 100000
+enable_vprof = False
+use_reference_optimization = True
 
 event = TestEvent()
 listener = broadcast.getListener(r)

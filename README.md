@@ -11,5 +11,11 @@ pip install graia-broadcast
 poetry add graia-broadcast
 ```
 
+# Example
+
+```python
+from graia.broadcast
+```
+
 ## 开源协议
 本实现以 MIT 为开源协议。

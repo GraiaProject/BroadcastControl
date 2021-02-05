@@ -102,7 +102,7 @@ class InterruptControl:
                 target=ExecTarget(
                     callable=waiter.detected_event,
                     inline_dispatchers=waiter.using_dispatchers,
-                    headless_decoraters=waiter.using_decorators,
+                    headless_decorators=waiter.using_decorators,
                     enable_internal_access=waiter.enable_internal_access,
                 ),
                 event=event,
@@ -116,4 +116,4 @@ class InterruptControl:
                     return RemoveMe()
                 raise PropagationCancelled()
 
-        return inside_listene
+        return inside_listener

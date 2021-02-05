@@ -186,17 +186,8 @@ class DispatcherInterface(IDispatcherInterface):
                 return
             else:
                 alive_dispatchers.append((current_generator, True))
-        elif isgeneratorfunction(dispatcher_callable):
-            current_generator = dispatcher_callable(self).__iter__()
-
-            try:
-                result = current_generator.__next__()
-            except StopIteration as e:
-                result = e.value
-            else:
-                alive_dispatchers.append((current_generator, False))
         else:
-            result = await run_always_await_safely(dispatcher_callable, self)
+            result = await dispatcher_callable(self)
 
         return result
 

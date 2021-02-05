@@ -1,0 +1,64 @@
+from typing import Any, Dict
+
+from graia.broadcast.entities.dispatcher import BaseDispatcher
+
+from ..entities.decorator import Decorator
+from ..entities.signatures import Force
+from ..utilles import (
+    is_asyncgener,
+    iscoroutinefunction,
+    isgeneratorfunction,
+    run_always_await_safely,
+    cached_isinstance,
+)
+from ..abstract.interfaces.dispatcher import IDispatcherInterface
+
+
+class DecoratorInterface(BaseDispatcher):
+    """Graia Broadcast Control 内部机制 Decorate 的具体管理实现"""
+
+    dispatcher_interface: IDispatcherInterface
+    local_storage: Dict[Any, Any] = {}
+    return_value: Any = None
+    default = None
+
+    def __init__(self, dispatcher_interface: IDispatcherInterface):
+        self.dispatcher_interface = dispatcher_interface
+
+    @property
+    def name(self):
+        return self.dispatcher_interface.name
+
+    @property
+    def annotation(self):
+        return self.dispatcher_interface.annotation
+
+    @property
+    def event(self):
+        return self.dispatcher_interface.event
+
+    async def catch(self, interface: IDispatcherInterface):
+        if cached_isinstance(interface.default, Decorator):
+            decorator: Decorator = interface.default
+            if not decorator.pre:
+                # 作为 装饰
+                self.return_value = await interface.lookup_param(
+                    interface.name, interface.annotation, None
+                )
+            try:
+                # 这里隐式的复用了 dispatcher interface 的生成器终结者机制
+                if is_asyncgener(decorator.target):
+                    # 如果是异步生成器
+                    async for i in decorator.target(self):
+                        yield i
+                elif isgeneratorfunction(decorator.target) and not iscoroutinefunction(
+                    decorator.target
+                ):
+                    # 同步生成器
+                    for i in decorator.target(self):
+                        yield i
+                else:
+                    yield Force(await run_always_await_safely(decorator.target, self))
+            finally:
+                if not decorator.pre:
+                    self.return_value = None

@@ -3,7 +3,7 @@ from typing import Callable, List, Type
 from .dispatcher import BaseDispatcher
 from .event import BaseEvent
 from .namespace import Namespace
-from .decorater import Decorater
+from .decorator import Decorator
 
 from .exectarget import ExecTarget
 
@@ -15,12 +15,12 @@ class Listener(ExecTarget):
         namespace: Namespace,
         listening_events: List[Type[BaseEvent]],
         inline_dispatchers: List[BaseDispatcher] = None,
-        headless_decoraters: List[Decorater] = None,
+        headless_decorators: List[Decorator] = None,
         priority: int = 16,
         enable_internal_access: bool = False,
     ) -> None:
         super().__init__(
-            callable, inline_dispatchers, headless_decoraters, enable_internal_access
+            callable, inline_dispatchers, headless_decorators, enable_internal_access
         )
         self.namespace = namespace
         self.listening_events = listening_events

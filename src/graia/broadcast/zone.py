@@ -1,7 +1,7 @@
 from typing import List, NoReturn, Optional, Type, Union
 
 from .entities.inject_rule import BaseRule
-from .entities.decorater import Decorater
+from .entities.decorator import Decorator
 from .entities.dispatcher import BaseDispatcher
 from .entities.event import BaseEvent
 from .exceptions import InvaildEventName, RegisteredEventListener
@@ -60,7 +60,7 @@ class Zone:
         event: Union[str, Type[BaseEvent]],
         priority: int = 16,
         dispatchers: List[Type[BaseDispatcher]] = [],
-        headless_decoraters: List[Decorater] = [],
+        headless_decorators: List[Decorator] = [],
         enable_internal_access: bool = False,
     ):
         if isinstance(event, str):
@@ -80,7 +80,7 @@ class Zone:
                         inline_dispatchers=dispatchers,
                         priority=priority,
                         listening_events=[event],
-                        headless_decoraters=headless_decoraters,
+                        headless_decorators=headless_decorators,
                         enable_internal_access=enable_internal_access,
                     )
                 )

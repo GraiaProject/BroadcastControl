@@ -25,7 +25,7 @@ from .typing import T_Dispatcher, T_Dispatcher_Callable
 from .entities.exectarget import ExecTarget
 
 from .interfaces.dispatcher import DispatcherInterface
-from .entities.decorater import Decorater
+from .entities.decorator import Decorator
 from .entities.dispatcher import BaseDispatcher
 from .entities.event import BaseEvent
 from .entities.inject_rule import BaseRule
@@ -42,7 +42,7 @@ from .exceptions import (
     RequirementCrashed,
     UnexistedNamespace,
 )
-from .interfaces.decorater import DecoraterInterface
+from .interfaces.decorator import DecoratorInterface
 from .utilles import (
     argument_signature,
     dispatcher_mixin_handler,
@@ -100,7 +100,7 @@ class Broadcast:
         self.use_reference_optimization = use_reference_optimization
 
         @self.dispatcher_interface.inject_global_raw
-        def _(interface: DispatcherInterface):
+        async def _(interface: DispatcherInterface):
             if interface.annotation is interface.event.__class__:
                 return interface.event
 
@@ -199,17 +199,17 @@ class Broadcast:
             try:
                 catched_first_dispatcher = next(dii.dispatcher_pure_generator())
             except StopIteration:
-                dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
+                dei = DecoratorInterface(dii)  # pylint: disable=unused-variable
                 self.dispatcher_interface.execution_contexts[
                     0
                 ].source.dispatchers.insert(0, dei)
             else:
-                if not isinstance(catched_first_dispatcher, DecoraterInterface):
-                    dei = DecoraterInterface(dii)  # pylint: disable=unused-variable
+                if not isinstance(catched_first_dispatcher, DecoratorInterface):
+                    dei = DecoratorInterface(dii)  # pylint: disable=unused-variable
                     self.dispatcher_interface.execution_contexts[
                         0
                     ].source.dispatchers.insert(0, dei)
-            # Decorater 的 Dispatcher 已经注入, 没他事了
+            # Decorator 的 Dispatcher 已经注入, 没他事了
 
             if enableInternalAccess or (
                 is_exectarget and target.enable_internal_access
@@ -221,7 +221,7 @@ class Broadcast:
                     internal_access_mapping[Namespace] = target.namespace
 
                 @dii.inject_execution_raw
-                def _(interface: DispatcherInterface):
+                async def _(interface: DispatcherInterface):
                     return internal_access_mapping.get(interface.annotation)
 
             for injection_rule in self.dispatcher_inject_rules:
@@ -246,11 +246,15 @@ class Broadcast:
                     ] = whole_statistics.setdefault(name, {})
                     if use_dispatcher_statistics:
                         if (
-                            use_reference_optimization
+                            use_reference_optimization and statistics
                         ):  # 启用被动性质的优化特性 引用缓存(Reference Cache)
-                            for dispatcher, this_statistics in sorted(
-                                statistics.items(), key=lambda x: x[1][0] / x[1][1]
-                            ):
+                            if len(statistics) == 1:
+                                sorted_iter = statistics.items()
+                            else:
+                                sorted_iter = sorted(
+                                    statistics.items(), key=lambda x: x[1][0] / x[1][1]
+                                )
+                            for dispatcher, this_statistics in sorted_iter:
                                 this_statistics[1] += 1
                                 if dispatcher() is None:  # ref 在对象 dead 时返回 None.
                                     del statistics[dispatcher]
@@ -299,8 +303,8 @@ class Broadcast:
                             name, annotation, default
                         )
                 if is_exectarget:
-                    if target.headless_decoraters:
-                        for hl_d in target.headless_decoraters:
+                    if target.headless_decorators:
+                        for hl_d in target.headless_decorators:
                             await dii.lookup_param(None, None, hl_d)
             except ExecutionStop:
                 raise
@@ -337,8 +341,8 @@ class Broadcast:
                 await dii.exec_lifecycle("afterTargetExec", exception, tb)
                 await dii.exec_lifecycle("afterExecution", exception, tb)
 
-            gener = None
-            if [inspect.isgenerator, isgenerator][isinstance(result, Hashable)](result):
+            is_hashable = isinstance(result, Hashable)
+            if is_hashable and isgenerator(result) or inspect.isgenerator(result):
                 gener = result
                 try:
                     result = next(gener)
@@ -346,7 +350,7 @@ class Broadcast:
                     result = e.value
                 else:
                     dii.alive_generator_dispatcher[-1].append((gener, False))
-            elif [inspect.isasyncgen, isasyncgen][isinstance(result, Hashable)](result):
+            elif is_hashable and isasyncgen(result) or inspect.isasyncgen(result):
                 gener = result
                 try:
                     result = await gener.__anext__()
@@ -463,7 +467,7 @@ class Broadcast:
         priority: int = 16,
         dispatchers: List[Type[BaseDispatcher]] = [],
         namespace: Namespace = None,
-        headless_decoraters: List[Decorater] = [],
+        headless_decorators: List[Decorator] = [],
         enable_internal_access: bool = False,
     ):
         if cached_isinstance(event, str):
@@ -483,7 +487,7 @@ class Broadcast:
                         inline_dispatchers=dispatchers,
                         priority=priority,
                         listening_events=[event],
-                        headless_decoraters=headless_decoraters,
+                        headless_decorators=headless_decorators,
                         enable_internal_access=enable_internal_access,
                     )
                 )
