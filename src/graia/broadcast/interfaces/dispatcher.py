@@ -1,7 +1,9 @@
+from inspect import isclass, isfunction, ismethod
+import inspect
 import traceback
 import weakref
 import itertools
-from functools import lru_cache
+from functools import lru_cache, partial
 
 from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface
 from typing import (
@@ -11,6 +13,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    TYPE_CHECKING,
     Tuple,
     Type,
     Union,
@@ -23,12 +26,11 @@ from graia.broadcast.entities.signatures import Force
 from graia.broadcast.entities.source import DispatcherSource
 from graia.broadcast.exceptions import OutOfMaxGenerater, RequirementCrashed
 from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
-from graia.broadcast.utilles import (
-    is_asyncgener,
-    isgeneratorfunction,
-    run_always_await_safely,
-    cached_getattr,
-)
+
+from ..utilles import NestableIterable, run_always_await_safely
+
+if TYPE_CHECKING:
+    from graia.broadcast import Broadcast
 
 
 class EmptyEvent(BaseEvent):
@@ -39,6 +41,10 @@ class EmptyEvent(BaseEvent):
 
 
 class DispatcherInterface(IDispatcherInterface):
+    nestable_iter: NestableIterable[
+        Tuple[T_Dispatcher, T_Dispatcher_Callable, DispatcherSource]
+    ] = None
+
     @property
     def name(self) -> str:
         return self.parameter_contexts[-1].name
@@ -73,7 +79,6 @@ class DispatcherInterface(IDispatcherInterface):
 
     def __init__(self, broadcast_instance: "Broadcast") -> None:
         self.broadcast = broadcast_instance
-        self.alive_generator_dispatcher = [[]]
         self.execution_contexts = [ExecutionContext([], EmptyEvent())]
         self.parameter_contexts = [ParameterContext(None, None, None, [])]
 
@@ -89,45 +94,15 @@ class DispatcherInterface(IDispatcherInterface):
         self,
         event: BaseEvent,
         dispatchers: List[T_Dispatcher],
-        use_inline_generator: bool = False,
     ) -> "DispatcherInterface":
-        self.execution_contexts.append(
-            ExecutionContext(dispatchers, event, use_inline_generator)
-        )
-        self.alive_generator_dispatcher.append([])
+        self.execution_contexts.append(ExecutionContext(dispatchers, event))
+        self.nestable_iter = NestableIterable(list(self.dispatcher_generator()))
         self.flush_lifecycle_refs()
         return self
 
     async def exit_current_execution(self):
-        current_generators = self.alive_generator_dispatcher[-1]
-        if current_generators:
-            if self.execution_contexts[-1].inline_generator:
-                if len(self.alive_generator_dispatcher) > 1:  # 防止插入到保护区
-                    self.alive_generator_dispatcher[-2].extend(current_generators)
-                else:
-                    raise ValueError("cannot cast to inline")
-            else:
-                await self.alive_dispatcher_killer()
-        self.alive_generator_dispatcher.pop()
         self.execution_contexts.pop()
-
-    async def alive_dispatcher_killer(self):
-        for unbound_gen, is_async_gen in self.alive_generator_dispatcher[-1]:
-            index = 0
-            if is_async_gen:
-                async for _ in unbound_gen:
-                    if index == 15:
-                        raise OutOfMaxGenerater(
-                            "a dispatch as a sync generator had to stop: ", unbound_gen
-                        )
-                    index += 1
-            else:
-                for _ in unbound_gen:
-                    if index == 15:
-                        raise OutOfMaxGenerater(
-                            "a dispatch as a sync generator had to stop: ", unbound_gen
-                        )
-                    index += 1
+        self.nestable_iter = None
 
     @property
     def dispatcher_sources(self) -> List[DispatcherSource]:
@@ -144,10 +119,11 @@ class DispatcherInterface(IDispatcherInterface):
     @staticmethod
     @lru_cache(None)
     def dispatcher_callable_detector(dispatcher: T_Dispatcher) -> T_Dispatcher_Callable:
-        if dispatcher.__class__ is type and issubclass(dispatcher, BaseDispatcher):
-            return dispatcher().catch
-        elif hasattr(dispatcher, "catch"):
-            return dispatcher.catch
+        if hasattr(dispatcher, "catch"):
+            if isfunction(dispatcher.catch) or not isclass(dispatcher):
+                return dispatcher.catch
+            else:
+                return partial(dispatcher.catch, None)
         elif callable(dispatcher):
             return dispatcher
         else:
@@ -172,46 +148,15 @@ class DispatcherInterface(IDispatcherInterface):
                 dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
                 yield (dispatcher, dispatcher_callable, source)
 
-    async def execute_dispatcher_callable(
-        self, dispatcher_callable: T_Dispatcher_Callable
-    ) -> Any:
-        alive_dispatchers = self.alive_generator_dispatcher[-1]
-
-        if is_asyncgener(dispatcher_callable):
-            current_generator = dispatcher_callable(self).__aiter__()
-
-            try:
-                result = await current_generator.__anext__()
-            except StopAsyncIteration:
-                return
-            else:
-                alive_dispatchers.append((current_generator, True))
-        else:
-            result = await dispatcher_callable(self)
-
-        return result
-
     async def lookup_param(
-        self,
-        name: str,
-        annotation: Any,
-        default: Any,
-        enable_extra_return: bool = False,
+        self, name: str, annotation: Any, default: Any
     ) -> Union[Any, Tuple[Any, T_Dispatcher, DispatcherSource, List[T_Dispatcher]]]:
         self.parameter_contexts.append(ParameterContext(name, annotation, default, []))
 
         result = None
         try:
-            start_offset = self._index + int(bool(self._index))
-            for self.execution_contexts[-1]._index, (
-                dispatcher,
-                dispatcher_callable,
-                source,
-            ) in enumerate(
-                itertools.islice(self.dispatcher_generator(), start_offset, None, None),
-                start=start_offset,
-            ):
-                result = await self.execute_dispatcher_callable(dispatcher_callable)
+            for dispatcher, dispatcher_callable, source in self.nestable_iter:
+                result = await run_always_await_safely(dispatcher_callable, self)
 
                 if result is None:
                     continue
@@ -220,25 +165,7 @@ class DispatcherInterface(IDispatcherInterface):
                     result = result.target
 
                 self.execution_contexts[-1]._index = 0
-                return (
-                    (
-                        result,
-                        weakref.ref(dispatcher),
-                        source,
-                        list(
-                            map(
-                                lambda x: weakref.ref(x),
-                                itertools.islice(
-                                    self.dispatcher_generator(),
-                                    start_offset,
-                                    self._index,
-                                ),
-                            )
-                        ),
-                    )
-                    if enable_extra_return
-                    else result
-                )
+                return result
             else:
                 raise RequirementCrashed(
                     "the dispatching requirement crashed: ",
@@ -257,27 +184,15 @@ class DispatcherInterface(IDispatcherInterface):
                     [DispatcherSource(always_dispatchers)],
                     using_always=False,
                 ):
-                    await self.execute_dispatcher_callable(dispatcher_callable)
+                    await run_always_await_safely(dispatcher_callable, self)
 
             self.parameter_contexts.pop()
 
     async def lookup_using_current(self) -> Any:
         result = None
         try:
-            for self.execution_contexts[-1]._index, (
-                dispatcher,
-                dispatcher_callable,
-                source,
-            ) in enumerate(
-                itertools.islice(
-                    self.dispatcher_generator(),
-                    self._index + int(bool(self._index)),
-                    None,
-                    None,
-                ),
-                start=self._index + int(bool(self._index)),
-            ):
-                result = await self.execute_dispatcher_callable(dispatcher_callable)
+            for dispatcher, dispatcher_callable, source in self.nestable_iter:
+                result = await run_always_await_safely(dispatcher_callable, self)
 
                 if result is None:
                     continue
@@ -299,77 +214,7 @@ class DispatcherInterface(IDispatcherInterface):
                 [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
                 using_always=False,
             ):
-                await self.execute_dispatcher_callable(dispatcher_callable)
-
-    async def lookup_by(
-        self,
-        dispatcher: T_Dispatcher,
-        name: str,
-        annotation: Any,
-        default: Any,
-        enable_extra_return: bool = False,
-    ) -> Union[Any, Tuple[Any, T_Dispatcher, DispatcherSource, List[T_Dispatcher]]]:
-        self.parameter_contexts.append(ParameterContext(name, annotation, default, []))
-
-        result = None
-        try:
-            start_offset = self._index + int(bool(self._index))
-            for self.execution_contexts[-1]._index, (
-                dispatcher,
-                dispatcher_callable,
-                source,
-            ) in enumerate(
-                itertools.islice(
-                    self.dispatcher_generator([DispatcherSource([dispatcher])]),
-                    start_offset,
-                    None,
-                    None,
-                ),
-                start=start_offset,
-            ):
-                result = await self.execute_dispatcher_callable(dispatcher_callable)
-
-                if result is None:
-                    continue
-
-                if result.__class__ is Force:
-                    result = result.target
-
-                self.execution_contexts[-1]._index = 0
-                return (
-                    (
-                        result,
-                        weakref.ref(dispatcher),
-                        source,
-                        list(
-                            map(
-                                lambda x: weakref.ref(x),
-                                itertools.islice(
-                                    self.dispatcher_generator(),
-                                    start_offset,
-                                    self._index,
-                                ),
-                            )
-                        ),
-                    )
-                    if enable_extra_return
-                    else result
-                )
-            else:
-                raise RequirementCrashed(
-                    "the dispatching requirement crashed: ",
-                    self.name,
-                    self.annotation,
-                    self.default,
-                )
-        finally:
-            for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
-                using_always=False,
-            ):
-                await self.execute_dispatcher_callable(dispatcher_callable)
-
-            self.parameter_contexts.pop()
+                await run_always_await_safely(dispatcher_callable, self)
 
     async def lookup_by_directly(
         self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any
@@ -379,7 +224,7 @@ class DispatcherInterface(IDispatcherInterface):
         dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
 
         try:
-            result = await self.execute_dispatcher_callable(dispatcher_callable)
+            result = await run_always_await_safely(dispatcher_callable, self)
             if result.__class__ is Force:
                 return result.target
 

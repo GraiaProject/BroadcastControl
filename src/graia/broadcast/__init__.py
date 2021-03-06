@@ -47,14 +47,11 @@ from .utilles import (
     argument_signature,
     dispatcher_mixin_handler,
     group_dict,
-    isasyncgen,
-    isgenerator,
     printer,
     run_always_await_safely,
     cached_isinstance,
 )
 from .typing import T_Dispatcher
-from .zone import Zone
 
 
 class Broadcast:
@@ -71,17 +68,12 @@ class Broadcast:
 
     debug_flag: bool
 
-    use_dispatcher_statistics: bool
-    use_reference_optimization: bool
-
     def __init__(
         self,
         *,
         loop: asyncio.AbstractEventLoop = None,
         debug_flag: bool = False,
         inject_rules: Optional[List[BaseRule]] = None,
-        use_dispatcher_statistics: bool = False,
-        use_reference_optimization: bool = False
     ):
         self.loop = loop or asyncio.get_event_loop()
         self.default_namespace = Namespace(name="default", default=True)
@@ -91,18 +83,14 @@ class Broadcast:
         self.dispatcher_inject_rules = inject_rules or []
         self.dispatcher_interface = DispatcherInterface(self)
 
-        self.use_dispatcher_statistics = use_dispatcher_statistics
-
-        if not use_dispatcher_statistics and use_reference_optimization:
-            raise ValueError(
-                "the feature of reference optimization requires dispatcher statictics."
-            )
-        self.use_reference_optimization = use_reference_optimization
-
         @self.dispatcher_interface.inject_global_raw
         async def _(interface: DispatcherInterface):
             if interface.annotation is interface.event.__class__:
                 return interface.event
+            elif interface.annotation is Broadcast:
+                return interface.broadcast
+            elif interface.annotation is DispatcherInterface:
+                return interface
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return (
@@ -149,21 +137,11 @@ class Broadcast:
         post_exception_event: bool = False,
         print_exception: bool = True,
         enableInternalAccess: bool = False,
-        use_inline_generator: bool = False,
-        use_dispatcher_statistics: bool = False,
-        use_reference_optimization: bool = False,
     ):
         from .builtin.event import ExceptionThrowed
 
         is_exectarget = cached_isinstance(target, ExecTarget)
         is_listener = cached_isinstance(target, Listener)
-
-        use_dispatcher_statistics = (
-            self.use_dispatcher_statistics or use_dispatcher_statistics
-        )
-        use_reference_optimization = (
-            self.use_reference_optimization or use_reference_optimization
-        )
 
         if is_listener:
             if target.namespace.disabled:
@@ -171,16 +149,7 @@ class Broadcast:
                     "catched a disabled namespace: {0}".format(target.namespace.name)
                 )
 
-        if use_dispatcher_statistics and not is_exectarget:
-            use_dispatcher_statistics = False
-        if use_reference_optimization and not use_dispatcher_statistics:
-            raise ValueError(
-                "the feature of reference optimization requires dispatcher statictics."
-            )
-
-        # 先生成 dispatchers
         _dispatchers = dispatcher_mixin_handler(event.Dispatcher)
-        # 开始暴力注入
         if is_exectarget:
             if target.inline_dispatchers:
                 _dispatchers = target.inline_dispatchers + _dispatchers
@@ -192,37 +161,32 @@ class Broadcast:
 
         target_callable = target.callable if is_exectarget else target
         parameter_compile_result = {}
+        complete_finished = False
 
         async with self.dispatcher_interface.start_execution(
-            event, _dispatchers, use_inline_generator
+            event, _dispatchers
         ) as dii:
             try:
                 catched_first_dispatcher = next(dii.dispatcher_pure_generator())
             except StopIteration:
                 dei = DecoratorInterface(dii)  # pylint: disable=unused-variable
-                self.dispatcher_interface.execution_contexts[
-                    0
-                ].source.dispatchers.insert(0, dei)
+                dii.execution_contexts[0].source.dispatchers.insert(0, dei)
             else:
                 if not isinstance(catched_first_dispatcher, DecoratorInterface):
                     dei = DecoratorInterface(dii)  # pylint: disable=unused-variable
-                    self.dispatcher_interface.execution_contexts[
-                        0
-                    ].source.dispatchers.insert(0, dei)
+                    dii.execution_contexts[0].source.dispatchers.insert(0, dei)
             # Decorator 的 Dispatcher 已经注入, 没他事了
 
             if enableInternalAccess or (
                 is_exectarget and target.enable_internal_access
             ):
-                internal_access_mapping = {Broadcast: self, DispatcherInterface: dii}
-                if is_exectarget:
-                    internal_access_mapping[target.__class__] = target
-                if is_listener:
-                    internal_access_mapping[Namespace] = target.namespace
 
                 @dii.inject_execution_raw
                 async def _(interface: DispatcherInterface):
-                    return internal_access_mapping.get(interface.annotation)
+                    if interface.annotation is target.__class__:
+                        return target
+                    elif interface.annotation is Namespace and is_listener:
+                        return target.namespace
 
             for injection_rule in self.dispatcher_inject_rules:
                 if injection_rule.check(event, dii):
@@ -230,83 +194,25 @@ class Broadcast:
                         1, injection_rule.target_dispatcher
                     )
 
-            if is_exectarget:
-                whole_statistics: Dict[
-                    str, Dict[T_Dispatcher, Tuple[int, int]]
-                ] = target.dispatcher_statistics["statistics"]
-            else:
-                whole_statistics = {}
-
             await dii.exec_lifecycle("beforeExecution")
-            await dii.exec_lifecycle("beforeDispatch")
             try:
+                await dii.exec_lifecycle("beforeDispatch")
                 for name, annotation, default in argument_signature(target_callable):
-                    statistics: Dict[
-                        T_Dispatcher, Tuple[int, int]
-                    ] = whole_statistics.setdefault(name, {})
-                    if use_dispatcher_statistics:
-                        if (
-                            use_reference_optimization and statistics
-                        ):  # 启用被动性质的优化特性 引用缓存(Reference Cache)
-                            if len(statistics) == 1:
-                                sorted_iter = statistics.items()
-                            else:
-                                sorted_iter = sorted(
-                                    statistics.items(), key=lambda x: x[1][0] / x[1][1]
-                                )
-                            for dispatcher, this_statistics in sorted_iter:
-                                this_statistics[1] += 1
-                                if dispatcher() is None:  # ref 在对象 dead 时返回 None.
-                                    del statistics[dispatcher]
-                                    continue
+                    parameter_compile_result[name] = await dii.lookup_param(
+                        name, annotation, default
+                    )
 
-                                try:
-                                    result = await dii.lookup_by_directly(
-                                        dispatcher(), name, annotation, default
-                                    )
-                                except RequirementCrashed:  # 忽略单个 Dispatcher 执行时若无法满足要求时所引发的错误
-                                    pass
-                                except:
-                                    traceback.print_exc()
-                                    raise
-                                else:
-                                    this_statistics[0] += 1
-                                    parameter_compile_result[name] = result
-                            else:
-                                if parameter_compile_result.get(name):
-                                    continue
-
-                        (
-                            parameter_compile_result[name],
-                            target_dispatcher,
-                            target_source,
-                            past_dispatchers,
-                        ) = await dii.lookup_param(
-                            name, annotation, default, enable_extra_return=True
-                        )
-
-                        # TODO: 判定 target_source 来源的可靠性(毕竟...)
-                        if target_source.source() is not None:
-                            # 1.成功给出结果的次数, 2.总共被 call 的次数
-                            statistics.setdefault(target_dispatcher, [0, 0])
-                            this_statistics = statistics[target_dispatcher]
-                            this_statistics[0] += 1
-                            this_statistics[1] += 1
-
-                            if len(statistics) > 1:
-                                past_set = set(statistics.keys())
-                                for past_dispatcher in past_dispatchers:
-                                    if past_dispatcher in past_set:
-                                        statistics[past_dispatcher][1] += 1
-                    else:
-                        parameter_compile_result[name] = await dii.lookup_param(
-                            name, annotation, default
-                        )
                 if is_exectarget:
                     if target.headless_decorators:
                         for hl_d in target.headless_decorators:
                             await dii.lookup_param(None, None, hl_d)
-            except ExecutionStop:
+
+                complete_finished = True
+
+                result = await run_always_await_safely(
+                    target_callable, **parameter_compile_result
+                )
+            except (ExecutionStop, PropagationCancelled):
                 raise
             except RequirementCrashed:
                 traceback.print_exc()
@@ -318,46 +224,12 @@ class Broadcast:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
-                await dii.exec_lifecycle("afterDispatch")
-
-            await dii.exec_lifecycle("beforeTargetExec")
-
-            try:
-                result = await run_always_await_safely(
-                    target_callable, **parameter_compile_result
-                )
-            except ExecutionStop:
-                raise  # 直接抛出.
-            except PropagationCancelled:
-                raise  # 防止事件广播
-            except Exception as e:
-                if print_exception:
-                    traceback.print_exc()
-                if post_exception_event:  # 如果没有referrer, 则广播事件, 如果有则向上抛出(防止重复抛出事件)
-                    self.postEvent(ExceptionThrowed(exception=e, event=event))
-                raise
-            finally:
-                _, exception, tb = sys.exc_info()
-                await dii.exec_lifecycle("afterTargetExec", exception, tb)
-                await dii.exec_lifecycle("afterExecution", exception, tb)
-
-            is_hashable = isinstance(result, Hashable)
-            if is_hashable and isgenerator(result) or inspect.isgenerator(result):
-                gener = result
-                try:
-                    result = next(gener)
-                except StopIteration as e:
-                    result = e.value
+                if complete_finished:
+                    _, exception, tb = sys.exc_info()
+                    await dii.exec_lifecycle("afterTargetExec", exception, tb)
+                    await dii.exec_lifecycle("afterExecution", exception, tb)
                 else:
-                    dii.alive_generator_dispatcher[-1].append((gener, False))
-            elif is_hashable and isasyncgen(result) or inspect.isasyncgen(result):
-                gener = result
-                try:
-                    result = await gener.__anext__()
-                except StopAsyncIteration:
-                    return  # value = None
-                else:
-                    dii.alive_generator_dispatcher[-1].append((gener, True))
+                    await dii.exec_lifecycle("afterDispatch")
 
             if result.__class__ is Force:
                 return result.content
@@ -366,6 +238,7 @@ class Broadcast:
                 if cached_isinstance(target, Listener):
                     if target in self.listeners:
                         self.listeners.pop(self.listeners.index(target))
+
             return result
 
     def postEvent(self, event: BaseEvent):
@@ -454,12 +327,6 @@ class Broadcast:
 
     def removeListener(self, target):
         self.listeners.remove(target)
-
-    def includeZone(self, target_zone: Zone):
-        if self.containNamespace(Zone.namespace.name):
-            raise ValueError("the zone cannot import because its name has been used.")
-        self.namespaces.append(target_zone.namespace)
-        self.listeners.extend(target_zone.listeners)
 
     def receiver(
         self,

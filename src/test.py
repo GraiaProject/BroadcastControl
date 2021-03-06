@@ -11,7 +11,6 @@ from graia.broadcast.exceptions import PropagationCancelled
 from graia.broadcast.interrupt import InterruptControl
 from graia.broadcast.interrupt.waiter import Waiter
 import random
-from devtools import debug
 import asyncio
 import time
 import objgraph
@@ -49,9 +48,9 @@ class TestEvent(BaseEvent):
         @staticmethod
         async def catch(interface: DispatcherInterface):
             if interface.name == "u":
-                yield 1
+                return 1
             elif interface.annotation == str:
-                yield 12
+                return 12
 
 
 event = TestEvent()
@@ -64,15 +63,15 @@ broadcast = Broadcast(
 
 
 @broadcast.receiver(TestEvent)
-# async def r(a: "123", b: "123", c: "123", d: "123", e: "123", fc: "123", gc: "123", hc: "123"):
-async def r():
+async def r(a: "123", b: "123", c: "123"):
+    # async def r():
     # print(locals())
     pass
 
 
 import vprof.runner
 
-count = 100000
+count = 1
 enable_vprof = False
 use_reference_optimization = True
 
@@ -81,14 +80,7 @@ listener = broadcast.getListener(r)
 tasks = []
 for _ in range(count):
     # broadcast.postEvent(event)
-    tasks.append(
-        broadcast.Executor(
-            listener,
-            event,
-            use_dispatcher_statistics=use_reference_optimization,
-            use_reference_optimization=use_reference_optimization,
-        )
-    )
+    tasks.append(broadcast.Executor(listener, event))
 s = time.time()
 
 if enable_vprof:

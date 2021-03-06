@@ -1,4 +1,3 @@
-from graia.broadcast.utilles import isasyncgen, iscoroutinefunction, isgenerator
 from ..entities.decorator import Decorator
 from typing import Callable, ContextManager, Any, Hashable
 from ..entities.signatures import Force
@@ -23,38 +22,19 @@ class Depend(Decorator):
         if self.cache:
             attempt = interface.local_storage.get(self.depend_callable)
             if attempt:
-                yield Force(attempt)
-                return
+                return Force(attempt)
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
             event=interface.event,
             post_exception_event=True,
-            use_inline_generator=True,
         )
 
-        result_is_asyncgen = [inspect.isasyncgen, isasyncgen][
-            isinstance(result, Hashable)
-        ](result)
-        result_is_generator = [inspect.isgenerator, isgenerator][
-            isinstance(result, Hashable)
-        ](result)
-        if result_is_asyncgen or (
-            result_is_generator and not iscoroutinefunction(self.depend_callable)
-        ):
-            if result_is_generator(result):
-                for i in result:
-                    yield Force(i)
-            elif result_is_asyncgen(result):
-                async for i in result:
-                    yield Force(i)
-        else:
-            if self.cache:
-                interface.local_storage[self.depend_callable] = result
-            yield Force(result)
-            return
+        if self.cache:
+            interface.local_storage[self.depend_callable] = result
+        return Force(result)
 
 
-class Middleware(Decorator):
+class Middleware(Decorator):  # TODO: use lifecycle...?
     pre = True
     context_target: Any
 

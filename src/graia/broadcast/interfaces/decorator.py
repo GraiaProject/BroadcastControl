@@ -5,9 +5,6 @@ from graia.broadcast.entities.dispatcher import BaseDispatcher
 from ..entities.decorator import Decorator
 from ..entities.signatures import Force
 from ..utilles import (
-    is_asyncgener,
-    iscoroutinefunction,
-    isgeneratorfunction,
     run_always_await_safely,
     cached_isinstance,
 )
@@ -46,19 +43,7 @@ class DecoratorInterface(BaseDispatcher):
                     interface.name, interface.annotation, None
                 )
             try:
-                # 这里隐式的复用了 dispatcher interface 的生成器终结者机制
-                if is_asyncgener(decorator.target):
-                    # 如果是异步生成器
-                    async for i in decorator.target(self):
-                        yield i
-                elif isgeneratorfunction(decorator.target) and not iscoroutinefunction(
-                    decorator.target
-                ):
-                    # 同步生成器
-                    for i in decorator.target(self):
-                        yield i
-                else:
-                    yield Force(await run_always_await_safely(decorator.target, self))
+                return Force(await run_always_await_safely(decorator.target, self))
             finally:
                 if not decorator.pre:
                     self.return_value = None

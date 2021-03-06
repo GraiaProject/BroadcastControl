@@ -1,8 +1,8 @@
 {
-    "python.pythonPath": "C:\\Users\\18469\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\graia-broadcast-xZ4GwFrL-py3.8\\scripts\\python.exe",
     "python.linting.enabled": false,
     "python.linting.pylintEnabled": true,
     "python.linting.banditEnabled": false,
     "maven.view": "hierarchical",
-    "python.formatting.provider": "black"
+    "python.formatting.provider": "black",
+    "python.pythonPath": "C:\\Users\\Elaina\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\graia-broadcast-ZXIKLP8W-py3.8\\scripts\\python.exe"
 }

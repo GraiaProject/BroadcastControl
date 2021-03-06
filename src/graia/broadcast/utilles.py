@@ -1,7 +1,7 @@
 import inspect
 import itertools
 from functools import lru_cache
-from typing import Any, Callable, List, Union
+from typing import Any, Callable, Iterable, List, TypeVar, Union
 
 from iterwrapper import IterWrapper
 
@@ -39,7 +39,7 @@ cache_size = 4096
 
 origin_isinstance = isinstance
 
-cached_isinstance = lru_cache(10240)(isinstance)
+cached_isinstance = lru_cache(1024)(isinstance)
 cached_getattr = lru_cache(cache_size)(getattr)
 
 
@@ -61,11 +61,6 @@ def is_asyncgener(o):
 
 
 @lru_cache(cache_size)
-def isgeneratorfunction(o):
-    return inspect.isgeneratorfunction(o)
-
-
-@lru_cache(cache_size)
 def iscoroutinefunction(o):
     return inspect.iscoroutinefunction(o)
 
@@ -73,30 +68,6 @@ def iscoroutinefunction(o):
 @lru_cache(cache_size)
 def isasyncgen(o):
     return inspect.isasyncgen(o)
-
-
-@lru_cache(cache_size)
-def isgenerator(o):
-    return inspect.isgenerator(o)
-
-
-async def whatever_gen_once(any_gen, *args, **kwargs):
-    if inspect.isasyncgenfunction(any_gen):
-        # 如果是异步生成器函数
-        async for i in any_gen(*args, **kwargs):
-            return i
-    elif inspect.isgeneratorfunction(any_gen) and not inspect.iscoroutinefunction(
-        any_gen
-    ):
-        # 同步生成器
-        for i in any_gen(*args, **kwargs):
-            return i
-    elif inspect.isgenerator(any_gen):
-        for i in any_gen:
-            return i
-    elif inspect.isasyncgen(any_gen):
-        async for i in any_gen:
-            return i
 
 
 def flat_yield_from(l):
@@ -130,3 +101,33 @@ class as_sliceable:
 
     def __iter__(self):
         return self.iterable
+
+
+T = TypeVar("T")
+
+
+class NestableIterable(Iterable[T]):
+    index_stack: list
+    iterable: Iterable[T]
+
+    def __init__(self, iterable: Iterable[T]) -> None:
+        self.iterable = iterable
+        self.index_stack = [0]
+
+    def __iter__(self):
+        index = self.index_stack[-1]
+        self.index_stack.append(self.index_stack[-1])
+
+        start_offset = index + int(bool(index))
+        try:
+            for self.index_stack[-1], content in enumerate(
+                itertools.islice(self.iterable, start_offset, None, None),
+                start=start_offset,
+            ):
+                yield content
+        finally:
+            self.index_stack.pop()
+
+    def with_new(self, target):
+        self.iterable = target
+        return self

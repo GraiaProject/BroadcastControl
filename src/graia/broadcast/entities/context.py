@@ -11,19 +11,12 @@ class ExecutionContext:
     source: DispatcherSource[T_Dispatcher, "ExecutionContext"]
     always_dispatchers: Set[Union["BaseDispatcher", Type["BaseDispatcher"]]]
     event: "BaseEvent"
-    inline_generator: bool
     _index: int
     lifecycle_refs: Dict[str, List[Callable]]
 
-    def __init__(
-        self,
-        dispatchers: List[T_Dispatcher],
-        event: "BaseEvent",
-        inline_generator: bool = False,
-    ) -> None:
+    def __init__(self, dispatchers: List[T_Dispatcher], event: "BaseEvent") -> None:
         self.source = DispatcherSource(dispatchers, weakref.ref(self))
         self.event = event
-        self.inline_generator = inline_generator
         self._index = 0
 
         self.lifecycle_refs = {}

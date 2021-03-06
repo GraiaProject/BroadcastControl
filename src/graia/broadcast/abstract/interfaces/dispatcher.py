@@ -10,11 +10,15 @@ from typing import (
     Iterable,
     List,
     Optional,
+    TYPE_CHECKING,
     Tuple,
     Union,
 )
 
 from graia.broadcast.utilles import run_always_await_safely, cached_getattr
+
+if TYPE_CHECKING:
+    from graia.broadcast import Broadcast
 
 DEFAULT_LIFECYCLE_NAMES = (
     "beforeDispatch",
@@ -31,25 +35,17 @@ class IDispatcherInterface(metaclass=ABCMeta):
 
     execution_contexts: List["ExecutionContext"]
     parameter_contexts: List["ParameterContext"]
-    alive_generator_dispatcher: List[
-        List[Tuple[Union[Generator, AsyncGenerator], bool]]
-    ]
 
     @abstractmethod
     def start_execution(
         self,
         event: "BaseEvent",
         dispatchers: List["T_Dispatcher"],
-        use_inline_generator: bool = False,
     ):
         pass
 
     @abstractmethod
     async def exit_current_execution(self):
-        pass
-
-    @abstractmethod
-    async def alive_dispatcher_killer(self):
         pass
 
     def inject_local_raw(self, *dispatchers: List["T_Dispatcher"], source: Any = None):
@@ -181,23 +177,11 @@ class IDispatcherInterface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    async def execute_dispatcher_callable(
-        self, dispatcher_callable: "T_Dispatcher_Callable"
-    ) -> Any:
-        pass
-
-    @abstractmethod
     async def lookup_param(self, name: str, annotation: Any, default: Any) -> Any:
         pass
 
     @abstractmethod
     async def lookup_using_current(self) -> Any:
-        pass
-
-    @abstractmethod
-    async def lookup_by(
-        self, dispatcher: "T_Dispatcher", name: str, annotation: Any, default: Any
-    ) -> Any:
         pass
 
     @abstractmethod
