@@ -1,11 +1,7 @@
-from graia.broadcast.utilles import NestableIterable
+from graia.broadcast.utilles import NeIP, NestableIterable
 
 
-def rr():
-    yield from [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-
-
-o = NestableIterable(rr())
+o = NeIP([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
 for i in o:
     print("", i)

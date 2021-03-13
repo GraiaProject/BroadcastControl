@@ -1,6 +1,9 @@
+from typing import TYPE_CHECKING
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import BaseEvent
-from ..abstract.interfaces.dispatcher import IDispatcherInterface
+
+if TYPE_CHECKING:
+    from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 
 class ExceptionThrowed(BaseEvent):
@@ -9,7 +12,7 @@ class ExceptionThrowed(BaseEvent):
 
     class Dispatcher(BaseDispatcher):
         @staticmethod
-        def catch(interface: IDispatcherInterface):
+        def catch(interface: "DispatcherInterface"):
             if interface.annotation == interface.event.exception.__class__:
                 return interface.event.exception
             if interface.name == "event":

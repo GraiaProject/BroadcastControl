@@ -5,7 +5,7 @@ from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 from graia.broadcast.entities.listener import Listener
 from graia.broadcast import Broadcast
 from graia.broadcast.entities.decorator import Decorator
-from graia.broadcast.builtin.decorators import Depend, Middleware
+from graia.broadcast.builtin.decorators import Depend
 from graia.broadcast.interfaces.decorator import DecoratorInterface
 from graia.broadcast.exceptions import PropagationCancelled
 from graia.broadcast.interrupt import InterruptControl
@@ -25,7 +25,7 @@ from graia.broadcast.utilles import dispatcher_mixin_handler
 
 class D1(BaseDispatcher):
     @staticmethod
-    async def catch(interface: DispatcherInterface):
+    async def catch(interface: "DispatcherInterface"):
         if interface.annotation == "123":
             return random.random()
 
@@ -34,7 +34,7 @@ class D2(BaseDispatcher):
     mixin = [D1]
 
     @staticmethod
-    async def catch(interface: DispatcherInterface):
+    async def catch(interface: "DispatcherInterface"):
         if interface.annotation == "13":
             r = await interface.lookup_param(interface.name, "123", interface.default)
 
@@ -46,7 +46,7 @@ class TestEvent(BaseEvent):
         mixin = [D2]
 
         @staticmethod
-        async def catch(interface: DispatcherInterface):
+        async def catch(interface: "DispatcherInterface"):
             if interface.name == "u":
                 return 1
             elif interface.annotation == str:
@@ -66,12 +66,13 @@ broadcast = Broadcast(
 async def r(a: "123", b: "123", c: "123"):
     # async def r():
     # print(locals())
+    # print(1)
     pass
 
 
 import vprof.runner
 
-count = 1
+count = 10000
 enable_vprof = False
 use_reference_optimization = True
 
@@ -97,4 +98,4 @@ n = e - s
 print(f"used {n}, {count/n}o/s")
 print(cached_isinstance.cache_info())
 print(cached_getattr.cache_info())
-print(listener.dispatcher_statistics)
+print(listener.param_paths)

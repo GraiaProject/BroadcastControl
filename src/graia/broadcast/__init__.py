@@ -1,26 +1,22 @@
 import asyncio
-from functools import lru_cache
-import inspect
 import sys
 import traceback
 from typing import (
-    Any,
     Callable,
     Dict,
     Generator,
-    Hashable,
     Iterable,
     List,
-    NoReturn,
-    Optional,
-    Tuple,
+    Set,
     Type,
     Union,
 )
 
 from iterwrapper import IterWrapper as iw
 
-from .typing import T_Dispatcher, T_Dispatcher_Callable
+from graia.broadcast.entities.track_log import TrackLogType
+
+from .typing import T_Dispatcher
 
 from .entities.exectarget import ExecTarget
 
@@ -28,7 +24,6 @@ from .interfaces.dispatcher import DispatcherInterface
 from .entities.decorator import Decorator
 from .entities.dispatcher import BaseDispatcher
 from .entities.event import BaseEvent
-from .entities.inject_rule import BaseRule
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
@@ -54,15 +49,32 @@ from .utilles import (
 from .typing import T_Dispatcher
 
 
+def path_optimizer(logs, current_paths: Dict[str, List[List["T_Dispatcher"]]]):
+    current_path: List[List["T_Dispatcher"]] = None
+    current_path_set: Set["T_Dispatcher"] = None
+    has_failures: set = set()
+
+    for log in logs:
+        if log[0] is TrackLogType.LookupStart:
+            current_path = current_paths[log[1]]
+            current_path_set = current_paths[log[1] + "$set"]
+        elif log[0] is TrackLogType.LookupEnd:
+            current_path = None
+        elif log[0] is TrackLogType.Result and log[2] not in current_path_set:
+            current_path[0].append(log[2])
+            current_path_set.add(log[2])
+        elif log[0] is TrackLogType.Continue:
+            has_failures.add(log[1])
+
+    return has_failures
+
+
 class Broadcast:
     loop: asyncio.AbstractEventLoop
 
     default_namespace: Namespace
     namespaces: List[Namespace]
     listeners: List[Listener]
-
-    # 规则驱动注入
-    dispatcher_inject_rules: List[BaseRule] = []
 
     dispatcher_interface: DispatcherInterface
 
@@ -73,15 +85,16 @@ class Broadcast:
         *,
         loop: asyncio.AbstractEventLoop = None,
         debug_flag: bool = False,
-        inject_rules: Optional[List[BaseRule]] = None,
     ):
         self.loop = loop or asyncio.get_event_loop()
         self.default_namespace = Namespace(name="default", default=True)
         self.debug_flag = debug_flag
         self.namespaces = []
         self.listeners = []
-        self.dispatcher_inject_rules = inject_rules or []
         self.dispatcher_interface = DispatcherInterface(self)
+        self.dispatcher_interface.execution_contexts[0].dispatchers.insert(
+            0, DecoratorInterface(self.dispatcher_interface)
+        )
 
         @self.dispatcher_interface.inject_global_raw
         async def _(interface: DispatcherInterface):
@@ -100,14 +113,6 @@ class Broadcast:
             .filter(lambda x: event_class in x.listening_events)
             # .collect(list)  # collect to a whole list
         )
-
-    def addInjectionRule(self, rule: BaseRule) -> NoReturn:
-        if rule in self.dispatcher_inject_rules:
-            raise ValueError("this rule has already been added!")
-        self.dispatcher_inject_rules.append(rule)
-
-    def removeInjectionRule(self, rule: BaseRule) -> NoReturn:
-        self.dispatcher_inject_rules.remove(rule)
 
     async def layered_scheduler(
         self, listener_generator: Generator[Listener, None, None], event: BaseEvent
@@ -149,34 +154,21 @@ class Broadcast:
                     "catched a disabled namespace: {0}".format(target.namespace.name)
                 )
 
-        _dispatchers = dispatcher_mixin_handler(event.Dispatcher)
-        if is_exectarget:
-            if target.inline_dispatchers:
-                _dispatchers = target.inline_dispatchers + _dispatchers
-            if is_listener:
-                if target.namespace.injected_dispatchers:
-                    _dispatchers = target.namespace.injected_dispatchers + _dispatchers
-        if dispatchers:
-            _dispatchers = dispatchers + _dispatchers
-
         target_callable = target.callable if is_exectarget else target
         parameter_compile_result = {}
         complete_finished = False
 
+        track_logs = []
         async with self.dispatcher_interface.start_execution(
-            event, _dispatchers
+            event,
+            [
+                *(dispatchers or []),
+                *(target.namespace.injected_dispatchers if is_listener else []),
+                *(target.inline_dispatchers if is_exectarget else []),
+                *dispatcher_mixin_handler(event.Dispatcher),
+            ],
+            track_logs,
         ) as dii:
-            try:
-                catched_first_dispatcher = next(dii.dispatcher_pure_generator())
-            except StopIteration:
-                dei = DecoratorInterface(dii)  # pylint: disable=unused-variable
-                dii.execution_contexts[0].source.dispatchers.insert(0, dei)
-            else:
-                if not isinstance(catched_first_dispatcher, DecoratorInterface):
-                    dei = DecoratorInterface(dii)  # pylint: disable=unused-variable
-                    dii.execution_contexts[0].source.dispatchers.insert(0, dei)
-            # Decorator 的 Dispatcher 已经注入, 没他事了
-
             if enableInternalAccess or (
                 is_exectarget and target.enable_internal_access
             ):
@@ -188,24 +180,42 @@ class Broadcast:
                     elif interface.annotation is Namespace and is_listener:
                         return target.namespace
 
-            for injection_rule in self.dispatcher_inject_rules:
-                if injection_rule.check(event, dii):
-                    dii.execution_contexts[-1].dispatchers.insert(
-                        1, injection_rule.target_dispatcher
-                    )
-
             await dii.exec_lifecycle("beforeExecution")
             try:
                 await dii.exec_lifecycle("beforeDispatch")
-                for name, annotation, default in argument_signature(target_callable):
-                    parameter_compile_result[name] = await dii.lookup_param(
-                        name, annotation, default
-                    )
 
                 if is_exectarget:
-                    if target.headless_decorators:
-                        for hl_d in target.headless_decorators:
-                            await dii.lookup_param(None, None, hl_d)
+                    if target.maybe_failure:
+                        for name, annotation, default in argument_signature(
+                            target_callable
+                        ):
+                            if name not in target.param_paths:
+                                target.param_paths[name] = dii.init_dispatch_path()
+                                target.param_paths[name + "$set"] = set()
+                            parameter_compile_result[name] = await dii.lookup_param(
+                                name, annotation, default, target.param_paths[name]
+                            )
+                    else:
+                        for name, annotation, default in argument_signature(
+                            target_callable
+                        ):
+                            parameter_compile_result[
+                                name
+                            ] = await dii.lookup_param_without_log(
+                                name, annotation, default, target.param_paths[name]
+                            )
+
+                    for hl_d in target.headless_decorators:
+                        await dii.lookup_param_without_log(None, None, hl_d)
+                else:
+                    for name, annotation, default in argument_signature(
+                        target_callable
+                    ):
+                        parameter_compile_result[
+                            name
+                        ] = await dii.lookup_param_without_log(
+                            name, annotation, default, target.param_paths[name]
+                        )
 
                 complete_finished = True
 
@@ -224,6 +234,10 @@ class Broadcast:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
+                if is_exectarget and target.maybe_failure:
+                    has_failures = path_optimizer(track_logs, target.param_paths)
+                    target.maybe_failure.intersection_update(has_failures)
+                # print(track_logs)
                 if complete_finished:
                     _, exception, tb = sys.exc_info()
                     await dii.exec_lifecycle("afterTargetExec", exception, tb)

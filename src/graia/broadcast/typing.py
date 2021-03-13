@@ -1,10 +1,12 @@
-from typing import Any, Callable, Type, Union
+from typing import Any, Callable, TYPE_CHECKING, Type, Union
+
+if TYPE_CHECKING:
+    from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 T_Dispatcher = Union[
-    Type["BaseDispatcher"], "BaseDispatcher", Callable[["IDispatcherInterface"], Any]
+    Type["BaseDispatcher"], "BaseDispatcher", Callable[["DispatcherInterface"], Any]
 ]
 
-T_Dispatcher_Callable = Callable[["IDispatcherInterface"], Any]
+T_Dispatcher_Callable = Callable[["DispatcherInterface"], Any]
 
 from graia.broadcast.entities.dispatcher import BaseDispatcher
-from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface

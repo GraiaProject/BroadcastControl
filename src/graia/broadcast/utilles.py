@@ -1,7 +1,17 @@
 import inspect
 import itertools
 from functools import lru_cache
-from typing import Any, Callable, Iterable, List, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Generic,
+    Iterable,
+    List,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from iterwrapper import IterWrapper
 
@@ -105,7 +115,7 @@ class as_sliceable:
 
 T = TypeVar("T")
 
-
+"""
 class NestableIterable(Iterable[T]):
     index_stack: list
     iterable: Iterable[T]
@@ -131,3 +141,59 @@ class NestableIterable(Iterable[T]):
     def with_new(self, target):
         self.iterable = target
         return self
+"""
+
+I = TypeVar("I")
+
+
+class NestableIterable(Generic[I, T]):
+    iterable: Iterable[T]
+    indexes: List[I]
+
+    generator_with_index_factory: Callable[
+        [Iterable[T], I], Generator[None, None, Tuple[I, T]]
+    ]
+    index_increase_func: Callable[[I, Iterable[T]], I]
+    is_index_origin: Callable[[I], bool]
+
+    @staticmethod
+    def default_generator_factory(iterable: Iterable[T], start: I):
+        return enumerate(iterable[start:], start=start)
+
+    def __init__(
+        self,
+        iterable: Iterable[T],
+        generator_with_index_factory: Callable[
+            [Iterable[T], I], Generator[None, None, Tuple[I, T]]
+        ] = None,
+        index_increase_func: Callable[[I, Iterable[T]], I] = lambda x, _: x + 1,
+        initial_index_value_factory: Callable[[], I] = lambda: 0,
+        is_index_origin: Callable[[I], bool] = lambda x: x == 0,
+    ) -> None:
+        self.iterable = iterable
+        self.indexes = [initial_index_value_factory()]
+
+        self.generator_with_index_factory = (
+            generator_with_index_factory or self.default_generator_factory
+        )
+        self.index_increase_func = index_increase_func
+        self.is_index_origin = is_index_origin
+
+    def __iter__(self):
+        current_index = self.indexes[-1]
+        self.indexes.append(current_index)
+
+        if self.is_index_origin(current_index):
+            start_offset = current_index
+        else:
+            start_offset = self.index_increase_func(current_index, self.iterable)
+        # 0 = 0
+        # <except 0> = index + 1
+        try:
+            for self.indexes[-1], content in self.generator_with_index_factory(
+                self.iterable,
+                start=start_offset,
+            ):
+                yield content
+        finally:
+            self.indexes.pop()

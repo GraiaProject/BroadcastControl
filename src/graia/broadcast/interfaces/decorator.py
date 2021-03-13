@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 
@@ -8,18 +8,20 @@ from ..utilles import (
     run_always_await_safely,
     cached_isinstance,
 )
-from ..abstract.interfaces.dispatcher import IDispatcherInterface
+
+if TYPE_CHECKING:
+    from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 
 class DecoratorInterface(BaseDispatcher):
     """Graia Broadcast Control 内部机制 Decorate 的具体管理实现"""
 
-    dispatcher_interface: IDispatcherInterface
+    dispatcher_interface: "DispatcherInterface"
     local_storage: Dict[Any, Any] = {}
     return_value: Any = None
     default = None
 
-    def __init__(self, dispatcher_interface: IDispatcherInterface):
+    def __init__(self, dispatcher_interface: "DispatcherInterface"):
         self.dispatcher_interface = dispatcher_interface
 
     @property
@@ -34,7 +36,7 @@ class DecoratorInterface(BaseDispatcher):
     def event(self):
         return self.dispatcher_interface.event
 
-    async def catch(self, interface: IDispatcherInterface):
+    async def catch(self, interface: "DispatcherInterface"):
         if cached_isinstance(interface.default, Decorator):
             decorator: Decorator = interface.default
             if not decorator.pre:

@@ -1,36 +1,39 @@
 from inspect import isclass, isfunction, ismethod
-import inspect
-import traceback
-import weakref
 import itertools
 from functools import lru_cache, partial
 
-from graia.broadcast.abstract.interfaces.dispatcher import IDispatcherInterface
 from typing import (
     Any,
-    Callable,
+    Dict,
     Generator,
-    Iterator,
     List,
     Optional,
     TYPE_CHECKING,
     Tuple,
-    Type,
-    Union,
 )
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import BaseEvent
 
 from graia.broadcast.entities.context import ExecutionContext, ParameterContext
 from graia.broadcast.entities.signatures import Force
-from graia.broadcast.entities.source import DispatcherSource
-from graia.broadcast.exceptions import OutOfMaxGenerater, RequirementCrashed
+from graia.broadcast.entities.track_log import TrackLogType
+from graia.broadcast.exceptions import RequirementCrashed
 from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
 
-from ..utilles import NestableIterable, run_always_await_safely
+from ..utilles import NestableIterable, run_always_await_safely, cached_getattr
 
 if TYPE_CHECKING:
     from graia.broadcast import Broadcast
+
+
+DEFAULT_LIFECYCLE_NAMES = (
+    "beforeDispatch",
+    "afterDispatch",
+    "beforeExecution",
+    "afterExecution",
+    "beforeTargetExec",
+    "afterTargetExec",
+)
 
 
 class EmptyEvent(BaseEvent):
@@ -40,10 +43,97 @@ class EmptyEvent(BaseEvent):
             pass
 
 
-class DispatcherInterface(IDispatcherInterface):
-    nestable_iter: NestableIterable[
-        Tuple[T_Dispatcher, T_Dispatcher_Callable, DispatcherSource]
-    ] = None
+class DispatcherInterface:
+    broadcast: "Broadcast"
+
+    execution_contexts: List["ExecutionContext"]
+    parameter_contexts: List["ParameterContext"]
+
+    track_logs: List[Tuple[TrackLogType, Any]] = None
+
+    @staticmethod
+    @lru_cache(None)
+    def get_lifecycle_refs(
+        dispatcher: "T_Dispatcher",
+    ) -> Optional[Dict[str, List]]:
+        from graia.broadcast.entities.dispatcher import BaseDispatcher
+
+        lifecycle_refs: Dict[str, List] = {}
+        if not isinstance(dispatcher, (BaseDispatcher, type)):
+            return
+
+        for name in DEFAULT_LIFECYCLE_NAMES:
+            lifecycle_refs.setdefault(name, [])
+            abstract_lifecycle_func = cached_getattr(BaseDispatcher, name)
+            unbound_attr = getattr(dispatcher, name, None)
+
+            if unbound_attr is None:
+                continue
+
+            orig_call = unbound_attr
+            while ismethod(orig_call):
+                orig_call = unbound_attr.__func__
+
+            if orig_call is abstract_lifecycle_func:
+                continue
+
+            lifecycle_refs[name].append(unbound_attr)
+
+        return lifecycle_refs
+
+    def dispatcher_pure_generator(self) -> Generator[None, None, T_Dispatcher]:
+        return itertools.chain(
+            self.execution_contexts[0].dispatchers,
+            self.parameter_contexts[-1].dispatchers,
+            self.execution_contexts[-1].dispatchers,
+        )
+
+    def flush_lifecycle_refs(
+        self,
+        dispatchers: List["T_Dispatcher"] = None,
+    ):
+        from graia.broadcast.entities.dispatcher import BaseDispatcher
+
+        lifecycle_refs = self.execution_contexts[-1].lifecycle_refs
+        if dispatchers is None and lifecycle_refs:  # 已经刷新.
+            return
+
+        for dispatcher in dispatchers or self.dispatcher_pure_generator():
+            if (
+                not isinstance(dispatcher, BaseDispatcher)
+                or dispatcher.__class__ is type
+            ):
+                continue
+
+            for name, value in self.get_lifecycle_refs(dispatcher).items():
+                lifecycle_refs.setdefault(name, [])
+                lifecycle_refs[name].extend(value)
+
+    async def exec_lifecycle(self, lifecycle_name: str, *args, **kwargs):
+        lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(
+            lifecycle_name, []
+        )
+        if lifecycle_funcs:
+            for func in lifecycle_funcs:
+                await run_always_await_safely(func, self, *args, **kwargs)
+
+    def inject_local_raw(self, *dispatchers: List["T_Dispatcher"]):
+        # 为什么没有 flush: 因为这里的 lifecycle 是无意义的.
+        for dispatcher in dispatchers[::-1]:
+            self.parameter_contexts[-1].dispatchers.insert(0, dispatcher)
+
+    def inject_execution_raw(self, *dispatchers: List["T_Dispatcher"]):
+        for dispatcher in dispatchers:
+            self.execution_contexts[-1].dispatchers.insert(0, dispatcher)
+
+        self.flush_lifecycle_refs(dispatchers)
+
+    def inject_global_raw(self, *dispatchers: List["T_Dispatcher"]):
+        # self.dispatchers.extend(dispatchers)
+        for dispatcher in dispatchers[::-1]:
+            self.execution_contexts[0].dispatchers.insert(1, dispatcher)
+
+        self.flush_lifecycle_refs(dispatchers)
 
     @property
     def name(self) -> str:
@@ -70,6 +160,10 @@ class DispatcherInterface(IDispatcherInterface):
         return self.execution_contexts[0].dispatchers
 
     @property
+    def current_path(self) -> NestableIterable[int, T_Dispatcher]:
+        return self.parameter_contexts[-1].path
+
+    @property
     def has_current_exec_context(self) -> bool:
         return len(self.execution_contexts) >= 2
 
@@ -80,7 +174,17 @@ class DispatcherInterface(IDispatcherInterface):
     def __init__(self, broadcast_instance: "Broadcast") -> None:
         self.broadcast = broadcast_instance
         self.execution_contexts = [ExecutionContext([], EmptyEvent())]
-        self.parameter_contexts = [ParameterContext(None, None, None, [])]
+        self.parameter_contexts = [
+            ParameterContext(
+                None,
+                None,
+                None,
+                [],
+                [
+                    [],
+                ],
+            )
+        ]
 
     async def __aenter__(self) -> "DispatcherInterface":
         return self
@@ -94,27 +198,19 @@ class DispatcherInterface(IDispatcherInterface):
         self,
         event: BaseEvent,
         dispatchers: List[T_Dispatcher],
+        track_log_receiver: List[Tuple[TrackLogType, Any]] = None,
     ) -> "DispatcherInterface":
         self.execution_contexts.append(ExecutionContext(dispatchers, event))
-        self.nestable_iter = NestableIterable(list(self.dispatcher_generator()))
         self.flush_lifecycle_refs()
+        if track_log_receiver is not None:
+            self.track_logs = track_log_receiver
+        else:
+            self.track_logs = []
         return self
 
     async def exit_current_execution(self):
         self.execution_contexts.pop()
-        self.nestable_iter = None
-
-    @property
-    def dispatcher_sources(self) -> List[DispatcherSource]:
-        return [
-            self.execution_contexts[0].source,
-            self.parameter_contexts[-1].source,
-            self.execution_contexts[-1].source,
-        ]
-
-    def dispatcher_pure_generator(self) -> Generator[None, None, T_Dispatcher]:
-        for source in self.dispatcher_sources:
-            yield from source.dispatchers
+        self.track_logs = None
 
     @staticmethod
     @lru_cache(None)
@@ -129,34 +225,33 @@ class DispatcherInterface(IDispatcherInterface):
         else:
             raise ValueError("invaild dispatcher: ", dispatcher)
 
-    def dispatcher_generator(
+    def init_dispatch_path(self) -> List[List["T_Dispatcher"]]:
+        return [
+            [],
+            self.execution_contexts[0].dispatchers,
+            self.parameter_contexts[-1].dispatchers,
+            self.execution_contexts[-1].dispatchers,
+        ]
+
+    async def lookup_param_without_log(
         self,
-        source_from: Iterator[DispatcherSource[T_Dispatcher, Any]] = None,
-        using_always: bool = True,
-    ) -> Generator[
-        None, None, Tuple[T_Dispatcher, T_Dispatcher_Callable, DispatcherSource]
-    ]:
-        always_dispatcher = self.execution_contexts[-1].always_dispatchers
-        if source_from is None:
-            source_from = self.dispatcher_sources
-
-        for source in source_from:
-            for dispatcher in source.dispatchers:
-                if using_always and dispatcher in always_dispatcher:
-                    always_dispatcher.remove(dispatcher)
-
-                dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
-                yield (dispatcher, dispatcher_callable, source)
-
-    async def lookup_param(
-        self, name: str, annotation: Any, default: Any
-    ) -> Union[Any, Tuple[Any, T_Dispatcher, DispatcherSource, List[T_Dispatcher]]]:
-        self.parameter_contexts.append(ParameterContext(name, annotation, default, []))
+        name: str,
+        annotation: Any,
+        default: Any,
+        using_path: List[List["T_Dispatcher"]] = None,
+    ) -> Any:
+        self.parameter_contexts.append(
+            ParameterContext(
+                name, annotation, default, [], using_path or self.init_dispatch_path
+            )
+        )
 
         result = None
         try:
-            for dispatcher, dispatcher_callable, source in self.nestable_iter:
-                result = await run_always_await_safely(dispatcher_callable, self)
+            for dispatcher in self.current_path:
+                result = await run_always_await_safely(
+                    self.dispatcher_callable_detector(dispatcher), self
+                )
 
                 if result is None:
                     continue
@@ -174,52 +269,86 @@ class DispatcherInterface(IDispatcherInterface):
                     self.default,
                 )
         finally:
-            always_dispatchers = self.execution_contexts[-1].always_dispatchers
-            if always_dispatchers:
-                for (
-                    dispatcher,
-                    dispatcher_callable,
-                    source,
-                ) in self.dispatcher_generator(
-                    [DispatcherSource(always_dispatchers)],
-                    using_always=False,
-                ):
-                    await run_always_await_safely(dispatcher_callable, self)
+            self.parameter_contexts.pop()
 
+    async def lookup_param(
+        self,
+        name: str,
+        annotation: Any,
+        default: Any,
+        using_path: List[List["T_Dispatcher"]] = None,
+    ) -> Any:
+        self.parameter_contexts.append(
+            ParameterContext(
+                name, annotation, default, [], using_path or self.init_dispatch_path
+            )
+        )
+
+        result = None
+        self.track_logs.append((TrackLogType.LookupStart, name, annotation, default))
+        try:
+            for dispatcher in self.current_path:
+                result = await run_always_await_safely(
+                    self.dispatcher_callable_detector(dispatcher), self
+                )
+
+                if result is None:
+                    self.track_logs.append((TrackLogType.Continue, name, dispatcher))
+                    continue
+
+                if result.__class__ is Force:
+                    result = result.target
+
+                self.track_logs.append((TrackLogType.Result, name, dispatcher))
+                self.execution_contexts[-1]._index = 0
+                return result
+            else:
+                self.track_logs.append((TrackLogType.RequirementCrashed, name))
+                raise RequirementCrashed(
+                    "the dispatching requirement crashed: ",
+                    self.name,
+                    self.annotation,
+                    self.default,
+                )
+        finally:
+            self.track_logs.append((TrackLogType.LookupEnd, name))
             self.parameter_contexts.pop()
 
     async def lookup_using_current(self) -> Any:
         result = None
-        try:
-            for dispatcher, dispatcher_callable, source in self.nestable_iter:
-                result = await run_always_await_safely(dispatcher_callable, self)
+        for dispatcher in self.current_path:
+            result = await run_always_await_safely(
+                self.dispatcher_callable_detector(dispatcher), self
+            )
+            if result is None:
+                continue
 
-                if result is None:
-                    continue
+            if result.__class__ is Force:
+                result = result.target
 
-                if result.__class__ is Force:
-                    result = result.target
-
-                self.execution_contexts[-1]._index = 0
-                return result
-            else:
-                raise RequirementCrashed(
-                    "the dispatching requirement crashed: ",
-                    self.name,
-                    self.annotation,
-                    self.default,
-                )
-        finally:
-            for dispatcher, dispatcher_callable, source in self.dispatcher_generator(
-                [DispatcherSource(self.execution_contexts[-1].always_dispatchers)],
-                using_always=False,
-            ):
-                await run_always_await_safely(dispatcher_callable, self)
+            self.execution_contexts[-1]._index = 0
+            return result
+        else:
+            raise RequirementCrashed(
+                "the dispatching requirement crashed: ",
+                self.name,
+                self.annotation,
+                self.default,
+            )
 
     async def lookup_by_directly(
-        self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any
+        self,
+        dispatcher: T_Dispatcher,
+        name: str,
+        annotation: Any,
+        default: Any,
+        using_path: List[List["T_Dispatcher"]] = None,
     ) -> Any:
-        self.parameter_contexts.append(ParameterContext(name, annotation, default, []))
+        self.parameter_contexts.append(
+            ParameterContext(
+                name, annotation, default, [], using_path or self.init_dispatch_path()
+            )
+        )
 
         dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
 
