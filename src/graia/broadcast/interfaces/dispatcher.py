@@ -242,7 +242,7 @@ class DispatcherInterface:
     ) -> Any:
         self.parameter_contexts.append(
             ParameterContext(
-                name, annotation, default, [], using_path or self.init_dispatch_path
+                name, annotation, default, [], using_path or self.init_dispatch_path()
             )
         )
 
@@ -280,7 +280,7 @@ class DispatcherInterface:
     ) -> Any:
         self.parameter_contexts.append(
             ParameterContext(
-                name, annotation, default, [], using_path or self.init_dispatch_path
+                name, annotation, default, [], using_path or self.init_dispatch_path()
             )
         )
 
