@@ -14,7 +14,7 @@ from typing import (
 
 from iterwrapper import IterWrapper as iw
 
-from graia.broadcast.entities.track_log import TrackLogType
+from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 
 from .typing import T_Dispatcher
 
@@ -47,26 +47,6 @@ from .utilles import (
     cached_isinstance,
 )
 from .typing import T_Dispatcher
-
-
-def path_optimizer(logs, current_paths: Dict[str, List[List["T_Dispatcher"]]]):
-    current_path: List[List["T_Dispatcher"]] = None
-    current_path_set: Set["T_Dispatcher"] = None
-    has_failures: set = set()
-
-    for log in logs:
-        if log[0] is TrackLogType.LookupStart:
-            current_path = current_paths[log[1]]
-            current_path_set = current_paths[log[1] + "$set"]
-        elif log[0] is TrackLogType.LookupEnd:
-            current_path = None
-        elif log[0] is TrackLogType.Result and log[2] not in current_path_set:
-            current_path[0].append(log[2])
-            current_path_set.add(log[2])
-        elif log[0] is TrackLogType.Continue:
-            has_failures.add(log[1])
-
-    return has_failures
 
 
 class Broadcast:
@@ -122,10 +102,9 @@ class Broadcast:
         )
         for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
             coros = [self.Executor(target=i, event=event) for i in current_group]
-            try:
-                await asyncio.gather(*coros)
-            except Exception as e:
-                if cached_isinstance(e, PropagationCancelled):
+            done_tasks, _ = await asyncio.wait(coros)
+            for task in done_tasks:
+                if task.exception().__class__ is PropagationCancelled:
                     break
 
     async def Executor(
@@ -158,7 +137,7 @@ class Broadcast:
         parameter_compile_result = {}
         complete_finished = False
 
-        track_logs = []
+        track_logs: TrackLog = TrackLog()
         async with self.dispatcher_interface.start_execution(
             event,
             [
@@ -186,11 +165,14 @@ class Broadcast:
 
                 if is_exectarget:
                     if target.maybe_failure:
+                        initial_path = dii.init_dispatch_path()
                         for name, annotation, default in argument_signature(
                             target_callable
                         ):
-                            if name not in target.param_paths:
-                                target.param_paths[name] = dii.init_dispatch_path()
+                            if (
+                                target.param_paths.setdefault(name, initial_path)
+                                is initial_path
+                            ):
                                 target.param_paths[name + "$set"] = set()
                             parameter_compile_result[name] = await dii.lookup_param(
                                 name, annotation, default, target.param_paths[name]
@@ -234,10 +216,28 @@ class Broadcast:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
-                if is_exectarget and target.maybe_failure:
-                    has_failures = path_optimizer(track_logs, target.param_paths)
-                    target.maybe_failure.intersection_update(has_failures)
-                # print(track_logs)
+                if is_exectarget and not track_logs.fluent_success:
+                    current_paths = target.param_paths
+                    current_path: List[List["T_Dispatcher"]] = None
+                    current_path_set: Set["T_Dispatcher"] = None
+                    has_failures: set = set()
+
+                    for log in track_logs.log:
+                        if log[0] is TrackLogType.LookupStart:
+                            current_path = current_paths[log[1]]
+                            current_path_set = current_paths[log[1] + "$set"]
+                        elif log[0] is TrackLogType.LookupEnd:
+                            current_path = None
+                        elif (
+                            log[0] is TrackLogType.Result
+                            and log[2] not in current_path_set
+                        ):
+                            current_path[0].append(log[2])
+                            current_path_set.add(log[2])
+                        elif log[0] is TrackLogType.Continue:
+                            has_failures.add(log[1])
+
+                    target.maybe_failure.symmetric_difference_update(has_failures)
                 if complete_finished:
                     _, exception, tb = sys.exc_info()
                     await dii.exec_lifecycle("afterTargetExec", exception, tb)

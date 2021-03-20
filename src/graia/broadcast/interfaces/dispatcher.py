@@ -16,7 +16,7 @@ from graia.broadcast.entities.event import BaseEvent
 
 from graia.broadcast.entities.context import ExecutionContext, ParameterContext
 from graia.broadcast.entities.signatures import Force
-from graia.broadcast.entities.track_log import TrackLogType
+from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 from graia.broadcast.exceptions import RequirementCrashed
 from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
 
@@ -49,7 +49,11 @@ class DispatcherInterface:
     execution_contexts: List["ExecutionContext"]
     parameter_contexts: List["ParameterContext"]
 
-    track_logs: List[Tuple[TrackLogType, Any]] = None
+    track_logs: List[TrackLog] = None
+
+    @property
+    def track_log(self):
+        return self.track_logs[-1]
 
     @staticmethod
     @lru_cache(None)
@@ -185,6 +189,7 @@ class DispatcherInterface:
                 ],
             )
         ]
+        self.track_logs = [TrackLog()]
 
     async def __aenter__(self) -> "DispatcherInterface":
         return self
@@ -198,19 +203,16 @@ class DispatcherInterface:
         self,
         event: BaseEvent,
         dispatchers: List[T_Dispatcher],
-        track_log_receiver: List[Tuple[TrackLogType, Any]] = None,
+        track_log_receiver: TrackLog = None,
     ) -> "DispatcherInterface":
         self.execution_contexts.append(ExecutionContext(dispatchers, event))
         self.flush_lifecycle_refs()
-        if track_log_receiver is not None:
-            self.track_logs = track_log_receiver
-        else:
-            self.track_logs = []
+        self.track_logs.append(track_log_receiver or TrackLog())
         return self
 
     async def exit_current_execution(self):
         self.execution_contexts.pop()
-        self.track_logs = None
+        self.track_logs.pop()
 
     @staticmethod
     @lru_cache(None)
@@ -283,9 +285,9 @@ class DispatcherInterface:
                 name, annotation, default, [], using_path or self.init_dispatch_path()
             )
         )
+        track_log = self.track_log.log
 
-        result = None
-        self.track_logs.append((TrackLogType.LookupStart, name, annotation, default))
+        track_log.append((TrackLogType.LookupStart, name, annotation, default))
         try:
             for dispatcher in self.current_path:
                 result = await run_always_await_safely(
@@ -293,17 +295,18 @@ class DispatcherInterface:
                 )
 
                 if result is None:
-                    self.track_logs.append((TrackLogType.Continue, name, dispatcher))
+                    self.track_log.fluent_success = False
+                    track_log.append((TrackLogType.Continue, name, dispatcher))
                     continue
 
                 if result.__class__ is Force:
                     result = result.target
 
-                self.track_logs.append((TrackLogType.Result, name, dispatcher))
+                track_log.append((TrackLogType.Result, name, dispatcher))
                 self.execution_contexts[-1]._index = 0
                 return result
             else:
-                self.track_logs.append((TrackLogType.RequirementCrashed, name))
+                track_log.append((TrackLogType.RequirementCrashed, name))
                 raise RequirementCrashed(
                     "the dispatching requirement crashed: ",
                     self.name,
@@ -311,7 +314,7 @@ class DispatcherInterface:
                     self.default,
                 )
         finally:
-            self.track_logs.append((TrackLogType.LookupEnd, name))
+            track_log.append((TrackLogType.LookupEnd, name))
             self.parameter_contexts.pop()
 
     async def lookup_using_current(self) -> Any:

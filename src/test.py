@@ -72,7 +72,7 @@ async def r(a: "123", b: "123", c: "123"):
 
 import vprof.runner
 
-count = 10000
+count = 20000
 enable_vprof = False
 use_reference_optimization = True
 

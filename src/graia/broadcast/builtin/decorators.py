@@ -6,12 +6,12 @@ from ..interfaces.decorator import DecoratorInterface
 
 class Depend(Decorator):
     pre = True
-    target: ExecTarget
+    depend_callable: ExecTarget
     cache: bool = False
 
     def __init__(self, callable, *, cache=False):
         self.cache = cache
-        self.target = ExecTarget(callable)
+        self.depend_callable = ExecTarget(callable)
 
     def __repr__(self) -> str:
         return "<Depend target={0}>".format(self.depend_callable)
@@ -22,11 +22,11 @@ class Depend(Decorator):
             if attempt:
                 return Force(attempt)
         result = await interface.dispatcher_interface.broadcast.Executor(
-            target=self.target,
+            target=self.depend_callable,
             event=interface.event,
             post_exception_event=True,
         )
 
         if self.cache:
-            interface.local_storage[self.target] = result
+            interface.local_storage[self.depend_callable] = result
         return Force(result)

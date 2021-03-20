@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graia-broadcast"
-version = "0.8.1"
+version = "0.8.3"
 description = "a highly customizable, elegantly designed event system based on asyncio"
 authors = ["GreyElaina <GreyElaina@outlook.com>"]
 license = "MIT"
@@ -11,7 +11,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.6"
 iterwrapper = "^0.1.2"
-pydantic = "*"
+pydantic = "<=1.7.1"
 
 [tool.poetry.dev-dependencies]
 black = "^20.8b1"
