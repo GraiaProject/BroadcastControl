@@ -1,7 +1,10 @@
+from typing import Any, Optional
+from graia.broadcast import typing
 from graia.broadcast.entities.exectarget import ExecTarget
 from ..entities.decorator import Decorator
 from ..entities.signatures import Force
 from ..interfaces.decorator import DecoratorInterface
+from ..exceptions import RequirementCrashed
 
 
 class Depend(Decorator):
@@ -30,3 +33,27 @@ class Depend(Decorator):
         if self.cache:
             interface.local_storage[self.depend_callable] = result
         return Force(result)
+
+
+class OptionalParam(Decorator):
+    pre = True
+
+    def __init__(self, origin: Any):
+        self.origin = origin
+
+    async def target(self, interface: DecoratorInterface) -> Optional[Any]:
+        try:
+            return Force(
+                await interface.dispatcher_interface.lookup_param(
+                    interface.dispatcher_interface.name,
+                    interface.dispatcher_interface.annotation.__args__[0]
+                    if isinstance(
+                        interface.dispatcher_interface.annotation, typing._GenericAlias
+                    )
+                    and type(None) in interface.dispatcher_interface.annotation.__args__
+                    else interface.dispatcher_interface.annotation,
+                    self.origin,
+                )
+            )
+        except RequirementCrashed:
+            return Force(None)

@@ -216,6 +216,14 @@ class Broadcast:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
+                if not complete_finished:
+                    _, exception, tb = sys.exc_info()
+                    await dii.exec_lifecycle("afterDispatch", exception, tb)
+                    await dii.exec_lifecycle("afterTargetExec", exception, tb)
+                    await dii.exec_lifecycle("afterExecution", exception, tb)
+                else:
+                    await dii.exec_lifecycle("afterDispatch")
+
                 if is_exectarget and not track_logs.fluent_success:
                     current_paths = target.param_paths
                     current_path: List[List["T_Dispatcher"]] = None
@@ -238,12 +246,6 @@ class Broadcast:
                             has_failures.add(log[1])
 
                     target.maybe_failure.symmetric_difference_update(has_failures)
-                if complete_finished:
-                    _, exception, tb = sys.exc_info()
-                    await dii.exec_lifecycle("afterTargetExec", exception, tb)
-                    await dii.exec_lifecycle("afterExecution", exception, tb)
-                else:
-                    await dii.exec_lifecycle("afterDispatch")
 
             if result.__class__ is Force:
                 return result.content
