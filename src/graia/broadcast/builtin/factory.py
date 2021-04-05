@@ -53,6 +53,7 @@ T_AsyncDispatcherContextManager = AsyncGenerator[
 class DispatcherContextManager(BaseDispatcher):
     generator_factory: Callable[[Any], T_DispatcherContextManager]
     generator: T_DispatcherContextManager
+    ready: bool = False
 
     def __init__(self, generator_factory: Callable, args=None, kwargs=None) -> None:
         self.generator_factory = generator_factory
@@ -63,8 +64,11 @@ class DispatcherContextManager(BaseDispatcher):
         self.generator = self.generator_factory(*self.args, **self.kwargs)
         next(self.generator)
         self.generator.send(interface)
+        self.ready = True
 
     def catch(self, interface: "DispatcherInterface"):
+        if not self.ready:
+            return
         status, value = self.generator.send((StatusCodeEnum.DISPATCHING, None))
         if status is ResponseCodeEnum.VALUE:
             return value
@@ -75,6 +79,7 @@ class DispatcherContextManager(BaseDispatcher):
         exception: Optional[Exception],
         tb: Optional[TracebackType],
     ):
+        self.ready = False
         try:
             if not tb:
                 self.generator.send((StatusCodeEnum.DISPATCH_COMPLETED, None))
@@ -105,6 +110,7 @@ class DispatcherContextManager(BaseDispatcher):
 class AsyncDispatcherContextManager(BaseDispatcher):
     generator_factory: Callable[[Any], T_AsyncDispatcherContextManager]
     generator: T_AsyncDispatcherContextManager
+    ready: bool = False
 
     def __init__(self, generator_factory: Callable, args=None, kwargs=None) -> None:
         self.generator_factory = generator_factory
@@ -115,8 +121,11 @@ class AsyncDispatcherContextManager(BaseDispatcher):
         self.generator = self.generator_factory(*self.args, **self.kwargs)
         await self.generator.__anext__()
         await self.generator.asend(interface)
+        self.ready = True
 
     async def catch(self, interface: "DispatcherInterface"):
+        if not self.ready:
+            return
         status, value = await self.generator.asend((StatusCodeEnum.DISPATCHING, None))
         if status is ResponseCodeEnum.VALUE:
             return value
@@ -127,6 +136,7 @@ class AsyncDispatcherContextManager(BaseDispatcher):
         exception: Optional[Exception],
         tb: Optional[TracebackType],
     ):
+        self.ready = False
         try:
             if not tb:
                 await self.generator.asend((StatusCodeEnum.DISPATCH_COMPLETED, None))
