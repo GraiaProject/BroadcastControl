@@ -13,6 +13,7 @@ traceback.print_exc = modifyed
 
 from typing import Any, Generator, Literal, Tuple, Union
 from graia.broadcast.builtin.factory import (
+    AsyncDispatcherContextManager,
     DispatcherContextManager,
     ExcInfo,
     ResponseCodeEnum,
@@ -61,7 +62,7 @@ class D2(BaseDispatcher):
             return r
 
 
-def test():
+async def test():
     interface: DispatcherInterface = (yield)
     current_status: StatusCodeEnum = StatusCodeEnum.DISPATCHING  # init stat
     yield
@@ -99,7 +100,7 @@ broadcast = Broadcast(
 )
 
 
-@broadcast.receiver(TestEvent, dispatchers=[DispatcherContextManager(test)])
+@broadcast.receiver(TestEvent, dispatchers=[AsyncDispatcherContextManager(test)])
 async def r(a: 1, b: 2, c: 3):
     # print(a)
     # raise Exception
