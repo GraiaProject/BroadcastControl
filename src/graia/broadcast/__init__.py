@@ -216,13 +216,10 @@ class Broadcast:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
-                if not complete_finished:
-                    _, exception, tb = sys.exc_info()
-                    await dii.exec_lifecycle("afterDispatch", exception, tb)
-                    await dii.exec_lifecycle("afterTargetExec", exception, tb)
-                    await dii.exec_lifecycle("afterExecution", exception, tb)
-                else:
-                    await dii.exec_lifecycle("afterDispatch")
+                _, exception, tb = sys.exc_info()
+                await dii.exec_lifecycle("afterDispatch", exception, tb)
+                await dii.exec_lifecycle("afterTargetExec", exception, tb)
+                await dii.exec_lifecycle("afterExecution", exception, tb)
 
                 if is_exectarget and not track_logs.fluent_success:
                     current_paths = target.param_paths
@@ -237,7 +234,8 @@ class Broadcast:
                         elif log[0] is TrackLogType.LookupEnd:
                             current_path = None
                         elif (
-                            log[0] is TrackLogType.Result
+                            current_path is not None
+                            and log[0] is TrackLogType.Result
                             and log[2] not in current_path_set
                         ):
                             current_path[0].append(log[2])

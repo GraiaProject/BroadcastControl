@@ -1,5 +1,5 @@
 from typing import Any, Optional
-from graia.broadcast import typing
+import typing
 from graia.broadcast.entities.exectarget import ExecTarget
 from ..entities.decorator import Decorator
 from ..entities.signatures import Force

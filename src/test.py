@@ -1,4 +1,23 @@
-from typing import Any
+import traceback
+import inspect
+
+original = traceback.print_exc
+
+
+def modifyed(*args, **kwargs):
+    print(inspect.stack()[1])
+    return original(*args, **kwargs)
+
+
+traceback.print_exc = modifyed
+
+from typing import Any, Generator, Literal, Tuple, Union
+from graia.broadcast.builtin.factory import (
+    DispatcherContextManager,
+    ExcInfo,
+    ResponseCodeEnum,
+    StatusCodeEnum,
+)
 from graia.broadcast.entities.event import BaseEvent
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
@@ -7,14 +26,15 @@ from graia.broadcast import Broadcast
 from graia.broadcast.entities.decorator import Decorator
 from graia.broadcast.builtin.decorators import Depend
 from graia.broadcast.interfaces.decorator import DecoratorInterface
-from graia.broadcast.exceptions import PropagationCancelled
+from graia.broadcast.exceptions import ExecutionStop, PropagationCancelled
 from graia.broadcast.interrupt import InterruptControl
 from graia.broadcast.interrupt.waiter import Waiter
 import random
 import asyncio
 import time
-import objgraph
-import copy
+
+# import objgraph
+# import copy
 import functools
 from graia.broadcast.utilles import cached_isinstance, cached_getattr
 
@@ -41,16 +61,33 @@ class D2(BaseDispatcher):
             return r
 
 
+def test():
+    interface: DispatcherInterface = (yield)
+    current_status: StatusCodeEnum = StatusCodeEnum.DISPATCHING  # init stat
+    yield
+    while current_status is StatusCodeEnum.DISPATCHING:
+        result = None
+
+        if interface.annotation.__class__ is int:
+            result = interface.annotation + 1
+
+        current_status, external = yield (ResponseCodeEnum.VALUE, result)
+    else:
+        current_status, external = yield
+        if current_status is StatusCodeEnum.DISPATCH_EXCEPTION:
+            pass
+        current_status, external = yield
+        if current_status is StatusCodeEnum.EXECUTION_EXCEPTION:
+            pass
+
+
 class TestEvent(BaseEvent):
     class Dispatcher(BaseDispatcher):
-        mixin = [D2]
+        # mixin = [DispatcherContextManager(test)]
 
         @staticmethod
         async def catch(interface: "DispatcherInterface"):
-            if interface.name == "u":
-                return 1
-            elif interface.annotation == str:
-                return 12
+            pass
 
 
 event = TestEvent()
@@ -62,18 +99,14 @@ broadcast = Broadcast(
 )
 
 
-@broadcast.receiver(TestEvent)
-async def r(a: "123", b: "123", c: "123"):
-    # async def r():
-    # print(locals())
-    # print(1)
+@broadcast.receiver(TestEvent, dispatchers=[DispatcherContextManager(test)])
+async def r(a: 1, b: 2, c: 3):
+    # print(a)
+    # raise Exception
     pass
 
 
-import vprof.runner
-
 count = 20000
-enable_vprof = False
 use_reference_optimization = True
 
 event = TestEvent()
@@ -84,14 +117,10 @@ for _ in range(count):
     tasks.append(broadcast.Executor(listener, event))
 s = time.time()
 
-if enable_vprof:
-    vprof.runner.run(
-        loop.run_until_complete,
-        "p",
-        (asyncio.gather(*tasks),),
-    )
-else:
+try:
     loop.run_until_complete(asyncio.gather(*tasks))
+except:
+    pass
 # loop.run_until_complete(asyncio.sleep(0.1))
 e = time.time()
 n = e - s
