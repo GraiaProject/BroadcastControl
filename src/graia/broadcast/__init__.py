@@ -210,9 +210,9 @@ class Broadcast:
                 traceback.print_exc()
                 raise
             except Exception as e:
-                if print_exception:
+                if print_exception or event.__class__ is ExceptionThrowed:
                     traceback.print_exc()
-                if post_exception_event:
+                if post_exception_event and event.__class__ is not ExceptionThrowed:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
