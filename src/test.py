@@ -48,7 +48,7 @@ class D1(BaseDispatcher):
     @staticmethod
     async def catch(interface: "DispatcherInterface"):
         if interface.annotation == "123":
-            return random.random()
+            return 1
 
 
 class D2(BaseDispatcher):
@@ -84,7 +84,7 @@ async def test():
 
 class TestEvent(BaseEvent):
     class Dispatcher(BaseDispatcher):
-        # mixin = [DispatcherContextManager(test)]
+        mixin = [D2]
 
         @staticmethod
         async def catch(interface: "DispatcherInterface"):
@@ -100,8 +100,8 @@ broadcast = Broadcast(
 )
 
 
-@broadcast.receiver(TestEvent, dispatchers=[AsyncDispatcherContextManager(test)])
-async def r(a: 1, b: 2, c: 3):
+@broadcast.receiver(TestEvent)
+async def r(a: "123", b: "123", c: "123"):
     # print(a)
     # raise Exception
     pass
