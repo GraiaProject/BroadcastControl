@@ -1,42 +1,27 @@
-from typing import Type, Optional
-from pydantic.dataclasses import dataclass
-from iterwrapper import IterWrapper
-from pydantic.main import BaseModel, ModelMetaclass
+import inspect
+from typing import TYPE_CHECKING, Any, Protocol, Tuple, TypeVar, Union
 
-import copy
+if TYPE_CHECKING:
+    from .dispatcher import BaseDispatcher
 
-
-class EventMeta(ModelMetaclass):
-    def __new__(mcls, name, bases, mapping, **kwargs):
-        if any(
-            IterWrapper(bases)
-            .filter(lambda x: getattr(x, "__base_event__", False))
-            .collect(list)
-        ):
-            if not mapping.__contains__("__base_event__"):
-                mapping["__base_event__"] = False
-        if not mapping.get("Dispatcher") and name != "BaseEvent":
-            raise AttributeError(
-                "a event class must have a dispatcher called 'Dispatcher'"
-            )
-        r = super().__new__(
-            mcls,
-            name,
-            (BaseModel, *bases) if name == "BaseEvent" else bases,
-            mapping,
-            **kwargs
-        )
-        if mapping.get("type"):
-            r.type = mapping.get("type")
-        if name != "BaseEvent":
-            r.update_forward_refs()
-            r.Dispatcher = mapping["Dispatcher"]
-        return r
+T = TypeVar("T")
 
 
-class BaseEvent(metaclass=EventMeta):
-    class Config:
-        arbitrary_types_allowed = True
+def issubclass_safely(
+    cls, class_or_tuple: Union[type, Tuple[Union[type, Tuple], ...]]
+) -> bool:
+    return inspect.isclass(cls) and issubclass(cls, class_or_tuple)
 
+
+class Dispatchable(Protocol[T]):
+    def __instancecheck__(self, instance: Any) -> bool:
+        if issubclass_safely(getattr(instance, "Dispatcher", None), BaseDispatcher):
+            return True
+        return super().__instancecheck__(instance)
+
+    Dispatcher: "BaseDispatcher"
+
+
+BaseEvent = Dispatchable
 
 from .dispatcher import BaseDispatcher

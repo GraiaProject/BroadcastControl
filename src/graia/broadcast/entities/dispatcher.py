@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractstaticmethod
 from types import TracebackType
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from graia.broadcast.interfaces.dispatcher import DispatcherInterface

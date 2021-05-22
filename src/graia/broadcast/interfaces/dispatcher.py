@@ -1,42 +1,27 @@
-from inspect import isclass, isfunction, ismethod
 import itertools
 from functools import lru_cache, partial
-
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    List,
-    Optional,
-    TYPE_CHECKING,
-    Tuple,
-)
-from graia.broadcast.entities.dispatcher import BaseDispatcher
-from graia.broadcast.entities.event import BaseEvent
+from inspect import isclass, isfunction, ismethod
+from typing import TYPE_CHECKING, Any, Dict, Generator, Iterable, List
 
 from graia.broadcast.entities.context import ExecutionContext, ParameterContext
+from graia.broadcast.entities.dispatcher import BaseDispatcher
+from graia.broadcast.entities.event import Dispatchable
 from graia.broadcast.entities.signatures import Force
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 from graia.broadcast.exceptions import RequirementCrashed
-from graia.broadcast.typing import T_Dispatcher, T_Dispatcher_Callable
+from graia.broadcast.typing import (
+    DEFAULT_LIFECYCLE_NAMES,
+    T_Dispatcher,
+    T_Dispatcher_Callable,
+)
 
-from ..utilles import NestableIterable, run_always_await_safely, cached_getattr
+from ..utilles import cached_getattr, run_always_await_safely
 
 if TYPE_CHECKING:
     from graia.broadcast import Broadcast
 
 
-DEFAULT_LIFECYCLE_NAMES = (
-    "beforeDispatch",
-    "afterDispatch",
-    "beforeExecution",
-    "afterExecution",
-    "beforeTargetExec",
-    "afterTargetExec",
-)
-
-
-class EmptyEvent(BaseEvent):
+class EmptyEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
         @staticmethod
         def catch(_):
@@ -57,33 +42,17 @@ class DispatcherInterface:
 
     @staticmethod
     @lru_cache(None)
-    def get_lifecycle_refs(
-        dispatcher: "T_Dispatcher",
-    ) -> Optional[Dict[str, List]]:
-        from graia.broadcast.entities.dispatcher import BaseDispatcher
-
-        lifecycle_refs: Dict[str, List] = {}
+    def get_lifecycle_refs(dispatcher: "T_Dispatcher", target_dict: Dict[str, List]):
         if not isinstance(dispatcher, (BaseDispatcher, type)):
             return
 
         for name in DEFAULT_LIFECYCLE_NAMES:
-            lifecycle_refs.setdefault(name, [])
-            abstract_lifecycle_func = cached_getattr(BaseDispatcher, name)
-            unbound_attr = getattr(dispatcher, name, None)
+            unbound_attr = cached_getattr(dispatcher, name, None)
 
             if unbound_attr is None:
                 continue
 
-            orig_call = unbound_attr
-            while ismethod(orig_call):
-                orig_call = unbound_attr.__func__
-
-            if orig_call is abstract_lifecycle_func:
-                continue
-
-            lifecycle_refs[name].append(unbound_attr)
-
-        return lifecycle_refs
+            target_dict[name].append(unbound_attr)
 
     def dispatcher_pure_generator(self) -> Generator[None, None, T_Dispatcher]:
         return itertools.chain(
@@ -99,7 +68,7 @@ class DispatcherInterface:
         from graia.broadcast.entities.dispatcher import BaseDispatcher
 
         lifecycle_refs = self.execution_contexts[-1].lifecycle_refs
-        if dispatchers is None and lifecycle_refs:  # 已经刷新.
+        if dispatchers is None and lifecycle_refs:
             return
 
         for dispatcher in dispatchers or self.dispatcher_pure_generator():
@@ -109,9 +78,7 @@ class DispatcherInterface:
             ):
                 continue
 
-            for name, value in self.get_lifecycle_refs(dispatcher).items():
-                lifecycle_refs.setdefault(name, [])
-                lifecycle_refs[name].extend(value)
+            self.get_lifecycle_refs(dispatcher, lifecycle_refs)
 
     async def exec_lifecycle(self, lifecycle_name: str, *args, **kwargs):
         lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(
@@ -156,7 +123,7 @@ class DispatcherInterface:
         return self.execution_contexts[-1]._index
 
     @property
-    def event(self) -> BaseEvent:
+    def event(self) -> Dispatchable:
         return self.execution_contexts[-1].event
 
     @property
@@ -164,7 +131,7 @@ class DispatcherInterface:
         return self.execution_contexts[0].dispatchers
 
     @property
-    def current_path(self) -> NestableIterable[int, T_Dispatcher]:
+    def current_path(self) -> Iterable[T_Dispatcher]:
         return self.parameter_contexts[-1].path
 
     @property
@@ -201,7 +168,7 @@ class DispatcherInterface:
 
     def start_execution(
         self,
-        event: BaseEvent,
+        event: Dispatchable,
         dispatchers: List[T_Dispatcher],
         track_log_receiver: TrackLog = None,
     ) -> "DispatcherInterface":

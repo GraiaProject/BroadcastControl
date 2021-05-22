@@ -1,13 +1,10 @@
-from typing import Any, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 
 from ..entities.decorator import Decorator
 from ..entities.signatures import Force
-from ..utilles import (
-    run_always_await_safely,
-    cached_isinstance,
-)
+from ..utilles import cached_isinstance, run_always_await_safely
 
 if TYPE_CHECKING:
     from graia.broadcast.interfaces.dispatcher import DispatcherInterface

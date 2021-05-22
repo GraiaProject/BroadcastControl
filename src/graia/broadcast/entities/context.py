@@ -1,30 +1,58 @@
-import itertools
+import copy
+from typing import Any, Callable, Dict, Iterable, List, TypeVar
 
-from typing import Any, Callable, Dict, List
-from graia.broadcast.utilles import NestableIterable
+from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher
 
-from ..typing import T_Dispatcher
+T = TypeVar("T")
+I = TypeVar("I")
+
+LF_COPY_TEMPLATE = {i: dict() for i in DEFAULT_LIFECYCLE_NAMES}
 
 
-def path_generator_factory(iterable: List[List["T_Dispatcher"]], start: int):
-    return enumerate(list(itertools.chain(*iterable))[start:])
+class DII_NestableIterable:
+    iterable: Iterable[T]
+    indexes: List[I]
+
+    def __init__(self, iterable: Iterable[T]) -> None:
+        self.iterable = iterable
+        self.indexes = [[0, 0]]
+
+    def __iter__(self):
+        dis_set_index, dis_index = self.indexes[-1]
+        dis_set_index_offset = dis_set_index + bool(dis_set_index)
+        dis_index_offset = dis_index + bool(dis_index)
+
+        current_indexes = [dis_set_index_offset, dis_index_offset]
+        self.indexes.append(current_indexes)
+
+        for content in self.iterable[dis_set_index_offset:]:
+            for i in content[dis_index_offset:]:
+                yield i
+                current_indexes[1] += 1
+            current_indexes[0] += 1
+
+        self.indexes.pop()
 
 
 class ExecutionContext:
-    event: "BaseEvent"
+    __slots__ = {"event", "_index", "lifecycle_refs", "dispatchers"}
+
+    event: "Dispatchable"
     _index: int
     lifecycle_refs: Dict[str, List[Callable]]
     dispatchers: List[T_Dispatcher]
 
-    def __init__(self, dispatchers: List[T_Dispatcher], event: "BaseEvent") -> None:
+    def __init__(self, dispatchers: List[T_Dispatcher], event: "Dispatchable") -> None:
         self.event = event
         self._index = 0
         self.dispatchers = dispatchers
 
-        self.lifecycle_refs = {}
+        self.lifecycle_refs = copy.copy(LF_COPY_TEMPLATE)
 
 
 class ParameterContext:
+    __slots__ = {"name", "annotation", "default", "dispatchers", "path"}
+
     name: str
     annotation: Any
     default: Any
@@ -36,7 +64,7 @@ class ParameterContext:
         self.annotation = annotation
         self.default = default
         self.dispatchers = dispatchers
-        self.path = NestableIterable(using_path, path_generator_factory)
+        self.path = DII_NestableIterable(using_path)
 
     def __repr__(self) -> str:
         return (
@@ -46,4 +74,4 @@ class ParameterContext:
         )
 
 
-from .event import BaseEvent
+from .event import Dispatchable

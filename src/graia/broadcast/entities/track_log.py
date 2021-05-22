@@ -1,15 +1,15 @@
-from enum import IntEnum, auto
-from typing import Any, List, Tuple, NamedTuple
+from enum import Enum
+from typing import Any, List, Tuple
 
 
-class TrackLogType(IntEnum):
-    LookupStart = auto()
-    LookupEnd = auto()
+class TrackLogType:
+    LookupStart = 0
+    LookupEnd = 1
 
-    Continue = auto()
-    Result = auto()
+    Continue = 2
+    Result = 3
 
-    RequirementCrashed = auto()
+    RequirementCrashed = 4
 
 
 T_TrackLogItem = Tuple[TrackLogType, Any]

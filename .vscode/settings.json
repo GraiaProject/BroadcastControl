@@ -4,5 +4,5 @@
     "python.linting.banditEnabled": false,
     "maven.view": "hierarchical",
     "python.formatting.provider": "black",
-    "python.pythonPath": "c:\\Users\\Elaina\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\graia-broadcast-ZXIKLP8W-py3.8\\Scripts\\python.exe"
+    "python.pythonPath": "/home/elaina/.cache/pypoetry/virtualenvs/graia-broadcast-X2A1jKhA-py3.9"
 }

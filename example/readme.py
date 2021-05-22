@@ -1,10 +1,10 @@
 import asyncio
 
-from graia.broadcast import BaseEvent, BaseDispatcher, Broadcast
+from graia.broadcast import Dispatchable, BaseDispatcher, Broadcast
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 
-class ExampleEvent(BaseEvent):
+class ExampleEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
         def catch(interface: "DispatcherInterface"):
             if interface.annotation is str:

@@ -16,10 +16,10 @@ poetry add graia-broadcast
 ```python
 import asyncio
 
-from graia.broadcast import BaseEvent, BaseDispatcher, Broadcast
+from graia.broadcast import Dispatchable, BaseDispatcher, Broadcast
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
-class ExampleEvent(BaseEvent):
+class ExampleEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
         def catch(interface: "DispatcherInterface"):
             if interface.annotation is str:
@@ -33,7 +33,7 @@ async def event_listener(maybe_you_are_str: str):
     print(maybe_you_are_str) # <<< ok, i'm
 
 async def main():
-    broadcast.postEvent(ExampleEvent) # sync call is allowed.
+    broadcast.postEvent(ExampleEvent()) # sync call is allowed.
 
 loop.run_until_complete(main())
 ```

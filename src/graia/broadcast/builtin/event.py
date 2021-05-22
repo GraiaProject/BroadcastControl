@@ -1,14 +1,15 @@
 from typing import TYPE_CHECKING
+
 from ..entities.dispatcher import BaseDispatcher
-from ..entities.event import BaseEvent
+from ..entities.event import Dispatchable
 
 if TYPE_CHECKING:
     from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 
-class ExceptionThrowed(BaseEvent):
+class ExceptionThrowed(Dispatchable):
     exception: Exception
-    event: BaseEvent
+    event: Dispatchable
 
     class Dispatcher(BaseDispatcher):
         @staticmethod

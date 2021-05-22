@@ -1,10 +1,12 @@
-from typing import Any, Optional
 import typing
+from typing import Any, Optional
+
 from graia.broadcast.entities.exectarget import ExecTarget
+
 from ..entities.decorator import Decorator
 from ..entities.signatures import Force
-from ..interfaces.decorator import DecoratorInterface
 from ..exceptions import RequirementCrashed
+from ..interfaces.decorator import DecoratorInterface
 
 
 class Depend(Decorator):

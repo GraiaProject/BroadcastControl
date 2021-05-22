@@ -1,9 +1,7 @@
 from typing import Any
 
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-
-class ObjectContainer(BaseModel):
+class ObjectContainer:
     target: Any
 
     def __init__(self, content: Any = None):

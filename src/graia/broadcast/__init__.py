@@ -1,29 +1,15 @@
 import asyncio
 import sys
 import traceback
-from typing import (
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Set,
-    Type,
-    Union,
-)
-
-from iterwrapper import IterWrapper as iw
+from typing import Callable, Dict, Generator, Iterable, List, Set, Type, Union
 
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 
-from .typing import T_Dispatcher
-
-from .entities.exectarget import ExecTarget
-
-from .interfaces.dispatcher import DispatcherInterface
+from .builtin.event import ExceptionThrowed
 from .entities.decorator import Decorator
 from .entities.dispatcher import BaseDispatcher
-from .entities.event import BaseEvent
+from .entities.event import Dispatchable
+from .entities.exectarget import ExecTarget
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
@@ -38,15 +24,16 @@ from .exceptions import (
     UnexistedNamespace,
 )
 from .interfaces.decorator import DecoratorInterface
+from .interfaces.dispatcher import DispatcherInterface
+from .typing import T_Dispatcher
 from .utilles import (
     argument_signature,
+    cached_isinstance,
     dispatcher_mixin_handler,
     group_dict,
     printer,
     run_always_await_safely,
-    cached_isinstance,
 )
-from .typing import T_Dispatcher
 
 
 class Broadcast:
@@ -86,16 +73,21 @@ class Broadcast:
                 return interface
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
-        return (
-            iw(self.listeners)
-            .filter(lambda x: not x.namespace.hide)  # filter for hide
-            .filter(lambda x: not x.namespace.disabled)  # filter for disabled
-            .filter(lambda x: event_class in x.listening_events)
-            # .collect(list)  # collect to a whole list
+        return list(
+            filter(
+                lambda x: all(
+                    [
+                        not x.namespace.hide,
+                        not x.namespace.disabled,
+                        event_class in x.listening_events,
+                    ]
+                ),
+                self.listeners,
+            )
         )
 
     async def layered_scheduler(
-        self, listener_generator: Generator[Listener, None, None], event: BaseEvent
+        self, listener_generator: Generator[Listener, None, None], event: Dispatchable
     ):
         grouped: Dict[int, List[Listener]] = group_dict(
             listener_generator, lambda x: x.priority
@@ -110,7 +102,7 @@ class Broadcast:
     async def Executor(
         self,
         target: Union[Callable, ExecTarget],
-        event: BaseEvent,
+        event: Dispatchable,
         dispatchers: List[
             Union[
                 Type[BaseDispatcher],
@@ -118,12 +110,9 @@ class Broadcast:
                 BaseDispatcher,
             ]
         ] = None,
-        post_exception_event: bool = False,
+        post_exception_event: bool = True,
         print_exception: bool = True,
-        enableInternalAccess: bool = False,
     ):
-        from .builtin.event import ExceptionThrowed
-
         is_exectarget = cached_isinstance(target, ExecTarget)
         is_listener = cached_isinstance(target, Listener)
 
@@ -135,7 +124,6 @@ class Broadcast:
 
         target_callable = target.callable if is_exectarget else target
         parameter_compile_result = {}
-        complete_finished = False
 
         track_logs: TrackLog = TrackLog()
         async with self.dispatcher_interface.start_execution(
@@ -148,17 +136,6 @@ class Broadcast:
             ],
             track_logs,
         ) as dii:
-            if enableInternalAccess or (
-                is_exectarget and target.enable_internal_access
-            ):
-
-                @dii.inject_execution_raw
-                async def _(interface: DispatcherInterface):
-                    if interface.annotation is target.__class__:
-                        return target
-                    elif interface.annotation is Namespace and is_listener:
-                        return target.namespace
-
             await dii.exec_lifecycle("beforeExecution")
             try:
                 await dii.exec_lifecycle("beforeDispatch")
@@ -198,8 +175,6 @@ class Broadcast:
                         ] = await dii.lookup_param_without_log(
                             name, annotation, default, target.param_paths[name]
                         )
-
-                complete_finished = True
 
                 result = await run_always_await_safely(
                     target_callable, **parameter_compile_result
@@ -255,7 +230,7 @@ class Broadcast:
 
             return result
 
-    def postEvent(self, event: BaseEvent):
+    def postEvent(self, event: Dispatchable):
         self.loop.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
@@ -264,7 +239,7 @@ class Broadcast:
         )
 
     @staticmethod
-    def event_class_generator(target=BaseEvent):
+    def event_class_generator(target=Dispatchable):
         for i in target.__subclasses__():
             yield i
             if i.__subclasses__():
@@ -344,12 +319,11 @@ class Broadcast:
 
     def receiver(
         self,
-        event: Union[str, Type[BaseEvent]],
+        event: Union[str, Type[Dispatchable]],
         priority: int = 16,
         dispatchers: List[Type[BaseDispatcher]] = [],
         namespace: Namespace = None,
         headless_decorators: List[Decorator] = [],
-        enable_internal_access: bool = False,
     ):
         if cached_isinstance(event, str):
             _name = event
@@ -369,7 +343,6 @@ class Broadcast:
                         priority=priority,
                         listening_events=[event],
                         headless_decorators=headless_decorators,
-                        enable_internal_access=enable_internal_access,
                     )
                 )
             else:
