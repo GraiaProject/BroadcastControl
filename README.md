@@ -34,6 +34,7 @@ async def event_listener(maybe_you_are_str: str):
 
 async def main():
     broadcast.postEvent(ExampleEvent()) # sync call is allowed.
+    await asyncio.sleep(0.1) # to solve event task.
 
 loop.run_until_complete(main())
 ```
