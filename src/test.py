@@ -51,7 +51,7 @@ async def r(r: str, d: str, c: str):
     pass
 
 
-count = 10
+count = 40000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -67,8 +67,8 @@ for _ in range(count):
 s = time.time()
 
 try:
-    cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))", "perf.prof")
-    # loop.run_until_complete(asyncio.gather(*tasks))
+    #cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))", "perf.prof")
+    loop.run_until_complete(asyncio.gather(*tasks))
     # loop.run_until_complete(asyncio.gather(*[r(1, 2, 3, 4) for _ in range(count)]))
 except:
     pass

@@ -44,6 +44,7 @@ class Broadcast:
     listeners: List[Listener]
 
     dispatcher_interface: DispatcherInterface
+    decorator_interface: DecoratorInterface
 
     debug_flag: bool
 
@@ -59,8 +60,9 @@ class Broadcast:
         self.namespaces = []
         self.listeners = []
         self.dispatcher_interface = DispatcherInterface(self)
+        self.decorator_interface = DecoratorInterface(self.dispatcher_interface)
         self.dispatcher_interface.execution_contexts[0].dispatchers.insert(
-            0, DecoratorInterface(self.dispatcher_interface)
+            0, self.decorator_interface
         )
 
         @self.dispatcher_interface.inject_global_raw
@@ -165,7 +167,10 @@ class Broadcast:
                             )
 
                     for hl_d in target.headless_decorators:
-                        await dii.lookup_param_without_log(None, None, hl_d)
+                        await dii.lookup_by_directly(
+                            self.decorator_interface, None, None, hl_d
+                        )
+
                 else:
                     for name, annotation, default in argument_signature(
                         target_callable
