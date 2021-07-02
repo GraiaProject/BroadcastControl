@@ -1,8 +1,9 @@
 import inspect
 from functools import lru_cache
-from typing import Any, Callable, Iterable, List
-
+from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar, Union
 from .entities.dispatcher import BaseDispatcher
+from contextvars import ContextVar, Token
+from contextlib import contextmanager
 
 
 async def run_always_await(any_callable):
@@ -16,6 +17,32 @@ async def run_always_await_safely(callable, *args, **kwargs):
     if iscoroutinefunction(callable):
         return await callable(*args, **kwargs)
     return callable(*args, **kwargs)
+
+
+T = TypeVar("T")
+D = TypeVar("D")
+
+
+class Ctx(Generic[T]):
+    current_ctx: ContextVar[T]
+
+    def __init__(self, name: str) -> None:
+        self.current_ctx = ContextVar(name)
+
+    def get(self, default: Union[D, T] = None) -> Union[T, D]:
+        return self.current_ctx.get(default)
+
+    def set(self, value: T):
+        return self.current_ctx.set(value)
+
+    def reset(self, token: Token):
+        return self.current_ctx.reset(token)
+
+    @contextmanager
+    def use(self, value: T):
+        token = self.set(value)
+        yield
+        self.reset(token)
 
 
 def printer(value):

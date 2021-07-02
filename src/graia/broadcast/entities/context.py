@@ -37,13 +37,11 @@ class DII_NestableIterable:
 class ExecutionContext:
     __slots__ = {"event", "_index", "lifecycle_refs", "dispatchers"}
 
-    event: "Dispatchable"
     _index: int
     lifecycle_refs: Dict[str, List[Callable]]
     dispatchers: List[T_Dispatcher]
 
-    def __init__(self, dispatchers: List[T_Dispatcher], event: "Dispatchable") -> None:
-        self.event = event
+    def __init__(self, dispatchers: List[T_Dispatcher]) -> None:
         self._index = 0
         self.dispatchers = dispatchers
 

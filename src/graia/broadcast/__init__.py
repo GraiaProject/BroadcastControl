@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import traceback
-from typing import Callable, Dict, Generator, Iterable, List, Set, Type, Union
+from typing import Callable, Dict, Generator, Iterable, List, Optional, Set, Type, Union
 
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 
@@ -27,6 +27,7 @@ from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
 from .utilles import (
+    Ctx,
     argument_signature,
     cached_isinstance,
     dispatcher_mixin_handler,
@@ -46,6 +47,8 @@ class Broadcast:
     dispatcher_interface: DispatcherInterface
     decorator_interface: DecoratorInterface
 
+    event_ctx: Ctx[Dispatchable]
+
     debug_flag: bool
 
     def __init__(
@@ -59,6 +62,7 @@ class Broadcast:
         self.debug_flag = debug_flag
         self.namespaces = []
         self.listeners = []
+        self.event_ctx = Ctx("bcc_event_ctx")
         self.dispatcher_interface = DispatcherInterface(self)
         self.decorator_interface = DecoratorInterface(self.dispatcher_interface)
         self.dispatcher_interface.execution_contexts[0].dispatchers.insert(
@@ -94,17 +98,21 @@ class Broadcast:
         grouped: Dict[int, List[Listener]] = group_dict(
             listener_generator, lambda x: x.priority
         )
-        for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
-            coros = [self.Executor(target=i, event=event) for i in current_group]
-            done_tasks, _ = await asyncio.wait(coros)
-            for task in done_tasks:
-                if task.exception().__class__ is PropagationCancelled:
-                    break
+        event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
+        with self.event_ctx.use(event):
+            for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
+                coros = [
+                    self.Executor(target=i, dispatchers=event_dispatcher_mixin)
+                    for i in current_group
+                ]
+                done_tasks, _ = await asyncio.wait(coros)
+                for task in done_tasks:
+                    if task.exception().__class__ is PropagationCancelled:
+                        break
 
     async def Executor(
         self,
         target: Union[Callable, ExecTarget],
-        event: Dispatchable,
         dispatchers: List[
             Union[
                 Type[BaseDispatcher],
@@ -117,6 +125,7 @@ class Broadcast:
     ):
         is_exectarget = cached_isinstance(target, ExecTarget)
         is_listener = cached_isinstance(target, Listener)
+        event: Optional[Dispatchable] = self.event_ctx.get(None)
 
         if is_listener:
             if target.namespace.disabled:
@@ -129,12 +138,10 @@ class Broadcast:
 
         track_logs: TrackLog = TrackLog()
         async with self.dispatcher_interface.start_execution(
-            event,
             [
                 *(dispatchers or []),
                 *(target.namespace.injected_dispatchers if is_listener else []),
                 *(target.inline_dispatchers if is_exectarget else []),
-                *dispatcher_mixin_handler(event.Dispatcher),
             ],
             track_logs,
         ) as dii:
@@ -190,10 +197,11 @@ class Broadcast:
                 traceback.print_exc()
                 raise
             except Exception as e:
-                if print_exception or event.__class__ is ExceptionThrowed:
-                    traceback.print_exc()
-                if post_exception_event and event.__class__ is not ExceptionThrowed:
-                    self.postEvent(ExceptionThrowed(exception=e, event=event))
+                if event is not None:
+                    if print_exception or event.__class__ is ExceptionThrowed:
+                        traceback.print_exc()
+                    if post_exception_event and event.__class__ is not ExceptionThrowed:
+                        self.postEvent(ExceptionThrowed(exception=e, event=event))
                 raise
             finally:
                 _, exception, tb = sys.exc_info()

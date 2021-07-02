@@ -58,11 +58,12 @@ listener = broadcast.getListener(r)
 tasks = []
 import cProfile
 
+mixins = dispatcher_mixin_handler(event.Dispatcher)
 for _ in range(count):
     # broadcast.postEvent(event)
     # tasks.append(
     #    loop.create_task(broadcast.Executor(listener, event)))
-    tasks.append(broadcast.Executor(listener, event))
+    tasks.append(broadcast.Executor(listener, dispatchers=mixins))
 
 s = time.time()
 

@@ -124,7 +124,7 @@ class DispatcherInterface:
 
     @property
     def event(self) -> Dispatchable:
-        return self.execution_contexts[-1].event
+        return self.broadcast.event_ctx.get()
 
     @property
     def global_dispatcher(self) -> List[T_Dispatcher]:
@@ -144,7 +144,7 @@ class DispatcherInterface:
 
     def __init__(self, broadcast_instance: "Broadcast") -> None:
         self.broadcast = broadcast_instance
-        self.execution_contexts = [ExecutionContext([], EmptyEvent())]
+        self.execution_contexts = [ExecutionContext([])]
         self.parameter_contexts = [
             ParameterContext(
                 None,
@@ -168,11 +168,10 @@ class DispatcherInterface:
 
     def start_execution(
         self,
-        event: Dispatchable,
         dispatchers: List[T_Dispatcher],
         track_log_receiver: TrackLog = None,
     ) -> "DispatcherInterface":
-        self.execution_contexts.append(ExecutionContext(dispatchers, event))
+        self.execution_contexts.append(ExecutionContext(dispatchers))
         self.flush_lifecycle_refs()
         self.track_logs.append(track_log_receiver or TrackLog())
         return self
