@@ -8,6 +8,7 @@ from graia.broadcast.entities.exectarget import ExecTarget
 from graia.broadcast.entities.signatures import RemoveMe
 from graia.broadcast.exceptions import PropagationCancelled
 from graia.broadcast.priority import Priority
+from graia.broadcast.utilles import dispatcher_mixin_handler
 
 from .waiter import Waiter
 
@@ -73,7 +74,7 @@ class InterruptControl:
                     inline_dispatchers=waiter.using_dispatchers,
                     headless_decorators=waiter.using_decorators,
                 ),
-                event=event,
+                dispatchers=dispatcher_mixin_handler(event.Dispatcher),
             )
 
             if result is not None:

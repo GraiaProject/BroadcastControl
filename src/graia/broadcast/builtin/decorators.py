@@ -2,6 +2,7 @@ import typing
 from typing import Any, Optional
 
 from graia.broadcast.entities.exectarget import ExecTarget
+from graia.broadcast.utilles import dispatcher_mixin_handler
 
 from ..entities.decorator import Decorator
 from ..entities.signatures import Force
@@ -28,7 +29,7 @@ class Depend(Decorator):
                 return Force(attempt)
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
-            event=interface.event,
+            dispatchers=dispatcher_mixin_handler(interface.event.Dispatcher),
             post_exception_event=True,
         )
 
