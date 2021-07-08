@@ -51,6 +51,9 @@ class DispatcherInterface:
             if unbound_attr is None:
                 continue
 
+            if target_dict[name] == {}:
+                target_dict[name] = []
+
             target_dict[name].append(unbound_attr)
 
     def dispatcher_pure_generator(self) -> Generator[None, None, T_Dispatcher]:
