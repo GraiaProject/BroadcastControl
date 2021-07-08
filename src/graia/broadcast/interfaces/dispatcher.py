@@ -41,7 +41,6 @@ class DispatcherInterface:
         return self.track_logs[-1]
 
     @staticmethod
-    @lru_cache(None)
     def get_lifecycle_refs(dispatcher: "T_Dispatcher", target_dict: Dict[str, List]):
         if not isinstance(dispatcher, (BaseDispatcher, type)):
             return
