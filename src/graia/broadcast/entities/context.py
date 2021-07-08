@@ -6,7 +6,7 @@ from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher
 T = TypeVar("T")
 I = TypeVar("I")
 
-LF_COPY_TEMPLATE = {i: dict() for i in DEFAULT_LIFECYCLE_NAMES}
+LF_COPY_TEMPLATE = {i: list() for i in DEFAULT_LIFECYCLE_NAMES}
 
 
 class DII_NestableIterable:
