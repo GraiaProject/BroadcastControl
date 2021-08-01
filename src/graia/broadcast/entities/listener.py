@@ -8,6 +8,10 @@ from .namespace import Namespace
 
 
 class Listener(ExecTarget):
+    namespace: Namespace
+    listening_events: List[Type[Dispatchable]]
+    priority: int
+
     def __init__(
         self,
         callable: Callable,
@@ -22,7 +26,3 @@ class Listener(ExecTarget):
         self.namespace = namespace
         self.listening_events = listening_events
         self.priority = priority
-
-    namespace: Namespace
-    listening_events: List[Type[Dispatchable]]
-    priority: int

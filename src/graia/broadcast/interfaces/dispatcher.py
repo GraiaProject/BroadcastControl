@@ -1,7 +1,8 @@
 import itertools
-from functools import lru_cache, partial
-from inspect import isclass, isfunction, ismethod
+from functools import partial
+from inspect import isclass, isfunction
 from typing import TYPE_CHECKING, Any, Dict, Generator, Iterable, List
+from graia.broadcast.cache import cached, hashkey
 
 from graia.broadcast.entities.context import ExecutionContext, ParameterContext
 from graia.broadcast.entities.dispatcher import BaseDispatcher
@@ -41,7 +42,7 @@ class DispatcherInterface:
         return self.track_logs[-1]
 
     @staticmethod
-    @lru_cache(None)
+    @cached({}, lambda x, _: hashkey(x))
     def get_lifecycle_refs(dispatcher: "T_Dispatcher", target_dict: Dict[str, List]):
         if not isinstance(dispatcher, (BaseDispatcher, type)):
             return
@@ -181,7 +182,7 @@ class DispatcherInterface:
         self.track_logs.pop()
 
     @staticmethod
-    @lru_cache(None)
+    @cached({}, hashkey)
     def dispatcher_callable_detector(dispatcher: T_Dispatcher) -> T_Dispatcher_Callable:
         if hasattr(dispatcher, "catch"):
             if isfunction(dispatcher.catch) or not isclass(dispatcher):
