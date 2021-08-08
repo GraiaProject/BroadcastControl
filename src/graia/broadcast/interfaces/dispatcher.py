@@ -1,5 +1,5 @@
 import itertools
-from functools import lru_cache, partial
+from functools import cache, lru_cache, partial
 from inspect import isclass, isfunction
 from typing import (TYPE_CHECKING, Any, Dict, Generator, Generic, Iterable,
                     List, Optional, Sequence, TypeVar)
@@ -43,19 +43,23 @@ class DispatcherInterface(Generic[T_Event]):
     def track_log(self):
         return self.track_logs[-1]
 
-    @staticmethod
-    @lru_cache(maxsize=None)
-    def get_lifecycle_refs(dispatcher: "T_Dispatcher") -> List:
-        return [
-            cached_getattr(dispatcher, name, None) for name in DEFAULT_LIFECYCLE_NAMES
-        ]
-
     def dispatcher_pure_generator(self) -> Iterable[T_Dispatcher]:
         return itertools.chain(
             self.execution_contexts[0].dispatchers,
             self.parameter_contexts[-1].dispatchers,
             self.execution_contexts[-1].dispatchers,
         )
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def get_lifecycle_refs(dispatcher: T_Dispatcher) -> Dict:
+        result = {}
+        
+        for name in DEFAULT_LIFECYCLE_NAMES:
+            v = cached_getattr(dispatcher, name, None)
+            if v:
+                result[name] = v
+        return result
 
     def flush_lifecycle_refs(
         self,
@@ -75,10 +79,9 @@ class DispatcherInterface(Generic[T_Event]):
                 continue
 
             result = self.get_lifecycle_refs(dispatcher)
-            for i in DEFAULT_LIFECYCLE_NAMES:
-                v = result.pop(0)
-                if v:
-                    lifecycle_refs[i].append(v)
+            if result:
+                for k, v in result.items():
+                    lifecycle_refs[k].append(v)
 
     async def exec_lifecycle(self, lifecycle_name: str, *args, **kwargs):
         lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(
@@ -172,7 +175,11 @@ class DispatcherInterface(Generic[T_Event]):
         track_log_receiver: TrackLog = None,
     ) -> "DispatcherInterface":
         self.execution_contexts.append(ExecutionContext(dispatchers))
-        self.flush_lifecycle_refs()
+        try:
+            self.flush_lifecycle_refs()
+        except:
+            import traceback
+            traceback.print_exc()
         self.track_logs.append(track_log_receiver or TrackLog())
         return self
 
