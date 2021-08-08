@@ -72,9 +72,9 @@ class InterruptControl:
                 target=ExecTarget(
                     callable=waiter.detected_event,
                     inline_dispatchers=waiter.using_dispatchers,
-                    headless_decorators=waiter.using_decorators,
+                    decorators=waiter.using_decorators,
                 ),
-                dispatchers=dispatcher_mixin_handler(event.Dispatcher),
+                dispatchers=dispatcher_mixin_handler(event.Dispatcher),  # type: ignore
             )
 
             if result is not None:

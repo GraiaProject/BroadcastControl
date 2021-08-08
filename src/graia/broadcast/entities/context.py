@@ -6,14 +6,14 @@ from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher
 T = TypeVar("T")
 I = TypeVar("I")
 
-LF_COPY_TEMPLATE = {i: list() for i in DEFAULT_LIFECYCLE_NAMES}
+LF_TEMPLATE = {i: list() for i in DEFAULT_LIFECYCLE_NAMES}
 
 
 class DII_NestableIterable:
-    iterable: Iterable[T]
-    indexes: List[I]
+    iterable: List
+    indexes: List
 
-    def __init__(self, iterable: Iterable[T]) -> None:
+    def __init__(self, iterable: List) -> None:
         self.iterable = iterable
         self.indexes = [[0, 0]]
 
@@ -45,7 +45,7 @@ class ExecutionContext:
         self._index = 0
         self.dispatchers = dispatchers
 
-        self.lifecycle_refs = copy.copy(LF_COPY_TEMPLATE)
+        self.lifecycle_refs = {i: [] for i in DEFAULT_LIFECYCLE_NAMES}
 
 
 class ParameterContext:

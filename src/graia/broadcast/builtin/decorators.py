@@ -29,7 +29,7 @@ class Depend(Decorator):
                 return Force(attempt)
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
-            dispatchers=dispatcher_mixin_handler(interface.event.Dispatcher),
+            dispatchers=dispatcher_mixin_handler(interface.event.Dispatcher),  # type: ignore
             post_exception_event=True,
         )
 
@@ -51,7 +51,7 @@ class OptionalParam(Decorator):
                     interface.dispatcher_interface.name,
                     interface.dispatcher_interface.annotation.__args__[0]
                     if isinstance(
-                        interface.dispatcher_interface.annotation, typing._GenericAlias
+                        interface.dispatcher_interface.annotation, typing._GenericAlias  # type: ignore
                     )
                     and type(None) in interface.dispatcher_interface.annotation.__args__
                     else interface.dispatcher_interface.annotation,

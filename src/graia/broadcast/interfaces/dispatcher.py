@@ -1,20 +1,19 @@
 import itertools
-from functools import partial
+from functools import lru_cache, partial
 from inspect import isclass, isfunction
-from typing import TYPE_CHECKING, Any, Dict, Generator, Iterable, List
-from graia.broadcast.cache import cached, hashkey
+from typing import (TYPE_CHECKING, Any, Dict, Generator, Generic, Iterable,
+                    List, Optional, Sequence, TypeVar)
 
-from graia.broadcast.entities.context import ExecutionContext, ParameterContext
+from graia.broadcast.cache import cached, hashkey
+from graia.broadcast.entities.context import (LF_TEMPLATE, ExecutionContext,
+                                              ParameterContext)
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import Dispatchable
 from graia.broadcast.entities.signatures import Force
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 from graia.broadcast.exceptions import RequirementCrashed
-from graia.broadcast.typing import (
-    DEFAULT_LIFECYCLE_NAMES,
-    T_Dispatcher,
-    T_Dispatcher_Callable,
-)
+from graia.broadcast.typing import (DEFAULT_LIFECYCLE_NAMES, T_Dispatcher,
+                                    T_Dispatcher_Callable)
 
 from ..utilles import cached_getattr, run_always_await_safely
 
@@ -29,33 +28,29 @@ class EmptyEvent(Dispatchable):
             pass
 
 
-class DispatcherInterface:
+T_Event = TypeVar("T_Event", bound=Dispatchable)
+
+
+class DispatcherInterface(Generic[T_Event]):
     broadcast: "Broadcast"
 
     execution_contexts: List["ExecutionContext"]
     parameter_contexts: List["ParameterContext"]
 
-    track_logs: List[TrackLog] = None
+    track_logs: List[TrackLog]
 
     @property
     def track_log(self):
         return self.track_logs[-1]
 
     @staticmethod
-    @cached({}, lambda x, _: hashkey(x))
-    def get_lifecycle_refs(dispatcher: "T_Dispatcher", target_dict: Dict[str, List]):
-        if not isinstance(dispatcher, (BaseDispatcher, type)):
-            return
+    @lru_cache(maxsize=None)
+    def get_lifecycle_refs(dispatcher: "T_Dispatcher") -> List:
+        return [
+            cached_getattr(dispatcher, name, None) for name in DEFAULT_LIFECYCLE_NAMES
+        ]
 
-        for name in DEFAULT_LIFECYCLE_NAMES:
-            unbound_attr = cached_getattr(dispatcher, name, None)
-
-            if unbound_attr is None:
-                continue
-
-            target_dict[name].append(unbound_attr)
-
-    def dispatcher_pure_generator(self) -> Generator[None, None, T_Dispatcher]:
+    def dispatcher_pure_generator(self) -> Iterable[T_Dispatcher]:
         return itertools.chain(
             self.execution_contexts[0].dispatchers,
             self.parameter_contexts[-1].dispatchers,
@@ -64,22 +59,26 @@ class DispatcherInterface:
 
     def flush_lifecycle_refs(
         self,
-        dispatchers: List["T_Dispatcher"] = None,
+        dispatchers: Sequence["T_Dispatcher"] = None,
     ):
         from graia.broadcast.entities.dispatcher import BaseDispatcher
 
         lifecycle_refs = self.execution_contexts[-1].lifecycle_refs
-        if dispatchers is None and lifecycle_refs:
+        if dispatchers is None and lifecycle_refs != LF_TEMPLATE:
             return
 
         for dispatcher in dispatchers or self.dispatcher_pure_generator():
             if (
                 not isinstance(dispatcher, BaseDispatcher)
-                or dispatcher.__class__ is type
+                and dispatcher.__class__ is not type
             ):
                 continue
 
-            self.get_lifecycle_refs(dispatcher, lifecycle_refs)
+            result = self.get_lifecycle_refs(dispatcher)
+            for i in DEFAULT_LIFECYCLE_NAMES:
+                v = result.pop(0)
+                if v:
+                    lifecycle_refs[i].append(v)
 
     async def exec_lifecycle(self, lifecycle_name: str, *args, **kwargs):
         lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(
@@ -89,18 +88,18 @@ class DispatcherInterface:
             for func in lifecycle_funcs:
                 await run_always_await_safely(func, self, *args, **kwargs)
 
-    def inject_local_raw(self, *dispatchers: List["T_Dispatcher"]):
+    def inject_local_raw(self, *dispatchers: "T_Dispatcher"):
         # 为什么没有 flush: 因为这里的 lifecycle 是无意义的.
         for dispatcher in dispatchers[::-1]:
             self.parameter_contexts[-1].dispatchers.insert(0, dispatcher)
 
-    def inject_execution_raw(self, *dispatchers: List["T_Dispatcher"]):
+    def inject_execution_raw(self, *dispatchers: "T_Dispatcher"):
         for dispatcher in dispatchers:
             self.execution_contexts[-1].dispatchers.insert(0, dispatcher)
 
         self.flush_lifecycle_refs(dispatchers)
 
-    def inject_global_raw(self, *dispatchers: List["T_Dispatcher"]):
+    def inject_global_raw(self, *dispatchers: "T_Dispatcher"):
         # self.dispatchers.extend(dispatchers)
         for dispatcher in dispatchers[::-1]:
             self.execution_contexts[0].dispatchers.insert(1, dispatcher)
@@ -186,7 +185,7 @@ class DispatcherInterface:
     def dispatcher_callable_detector(dispatcher: T_Dispatcher) -> T_Dispatcher_Callable:
         if hasattr(dispatcher, "catch"):
             if isfunction(dispatcher.catch) or not isclass(dispatcher):
-                return dispatcher.catch
+                return dispatcher.catch  # type: ignore
             else:
                 return partial(dispatcher.catch, None)
         elif callable(dispatcher):

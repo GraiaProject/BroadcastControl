@@ -1,13 +1,13 @@
-from typing import Any
+from typing import Any, Union
 
 
 class ObjectContainer:
     target: Any
 
-    def __init__(self, content: Any = None):
+    def __init__(self, content: Union["ObjectContainer", Any] = None):
         if content.__class__ is self.__class__:
-            content = content.target
-        super().__init__(target=content)
+            content = content.target  # type: ignore
+        self.target = content
 
 
 class Force(ObjectContainer):

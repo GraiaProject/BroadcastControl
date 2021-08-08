@@ -28,6 +28,10 @@ class TestEvent(Dispatchable):
         async def catch(interface: "DispatcherInterface"):
             if interface.annotation is str:
                 return "1"
+        
+        @staticmethod
+        async def beforeDispatch(interface: "DispatcherInterface"):
+            pass
 
 
 @Waiter.create_using_function([TestEvent])
@@ -51,7 +55,7 @@ async def r(r: str, d: str, c: str):
     pass
 
 
-count = 40000
+count = 50000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -59,6 +63,7 @@ tasks = []
 import cProfile
 
 mixins = dispatcher_mixin_handler(event.Dispatcher)
+print(mixins)
 for _ in range(count):
     # broadcast.postEvent(event)
     # tasks.append(

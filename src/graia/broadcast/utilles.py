@@ -1,13 +1,15 @@
 import inspect
-from functools import lru_cache
-from typing import Any, Callable, Generic, Iterable, List, Optional, TypeVar, Union
-from .entities.dispatcher import BaseDispatcher
-from contextvars import ContextVar, Token
 from contextlib import contextmanager
+from contextvars import ContextVar, Token
+from functools import lru_cache
+from typing import (Any, Awaitable, Callable, Generic, Iterable, Type, TypeVar,
+                    Union)
+
+from .entities.dispatcher import BaseDispatcher
 
 
-async def run_always_await(any_callable):
-    if inspect.iscoroutine(any_callable):
+async def run_always_await(any_callable: Union[Awaitable, Callable]):
+    if inspect.isawaitable(any_callable):
         return await any_callable
     else:
         return any_callable
@@ -72,8 +74,8 @@ def argument_signature(callable_target):
     return [
         (
             name,
-            param.annotation if param.annotation != inspect._empty else None,
-            param.default if param.default != inspect._empty else None,
+            param.annotation if param.annotation != inspect._empty else None,  # type: ignore
+            param.default if param.default != inspect._empty else None,  # type: ignore
         )
         for name, param in dict(inspect.signature(callable_target).parameters).items()
     ]
@@ -95,7 +97,7 @@ def isasyncgen(o):
 
 
 @lru_cache(None)
-def dispatcher_mixin_handler(dispatcher: BaseDispatcher) -> List[BaseDispatcher]:
+def dispatcher_mixin_handler(dispatcher: Union[Type[BaseDispatcher], BaseDispatcher]):
     unbound_mixin = getattr(dispatcher, "mixin", [])
     result = [dispatcher]
 

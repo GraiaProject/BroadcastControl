@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractstaticmethod
+from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import TYPE_CHECKING, List, Optional
 
@@ -15,8 +15,8 @@ class BaseDispatcher(metaclass=ABCMeta):
     该列表中的 Dispatcher 全部被调用过且都不返回一有效值时才会将解析权交由其他的 Dispatcher.
     """
 
-    @abstractstaticmethod
-    async def catch(interface: "DispatcherInterface"):
+    @abstractmethod
+    async def catch(self, interface: "DispatcherInterface"):
         """该方法可以是 `staticmethod`, `classmethod` 亦或是普通的方法/函数.
         唯一的要求是 `Dispatcher.catch` 获取到的必须为一可调用异步 Callable.
 

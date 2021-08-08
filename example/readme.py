@@ -6,13 +6,14 @@ from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 class ExampleEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
+        @staticmethod
         def catch(interface: "DispatcherInterface"):
             if interface.annotation is str:
                 return "ok, i'm."
 
 
 loop = asyncio.get_event_loop()
-broadcast = Broadcast(loop)
+broadcast = Broadcast(loop=loop)
 
 
 @broadcast.receiver("ExampleEvent")  # or just receiver(ExampleEvent)
@@ -21,7 +22,7 @@ async def event_listener(maybe_you_are_str: str):
 
 
 async def main():
-    broadcast.postEvent(ExampleEvent)  # sync call is allowed.
+    broadcast.postEvent(ExampleEvent())  # sync call is allowed.
 
 
 loop.run_until_complete(main())

@@ -26,9 +26,9 @@ class Waiter(metaclass=ABCMeta):
         async def detected_event(self) -> Any:
             pass
 
-        return type(
+        return type(  # type: ignore
             "AbstractWaiter",
-            (cls,),
+            (cls,),  # type: ignore
             {
                 "listening_events": listening_events,
                 "using_dispatchers": using_dispatchers,

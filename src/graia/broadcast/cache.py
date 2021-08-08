@@ -48,12 +48,12 @@ def cached(cache, key, lock=None):
     def decorator(func):
         if cache is None:
 
-            def wrapper(*args, **kwargs):
+            def wrapper(*args, **kwargs):  # type: ignore
                 return func(*args, **kwargs)
 
         elif lock is None:
 
-            def wrapper(*args, **kwargs):
+            def wrapper(*args, **kwargs):  # type: ignore
                 k = key(*args, **kwargs)
                 try:
                     return cache[k]
@@ -96,7 +96,7 @@ def cachedmethod(cache, key=hashkey, lock=None):
     def decorator(method):
         if lock is None:
 
-            def wrapper(self, *args, **kwargs):
+            def wrapper(self, *args, **kwargs):  # type: ignore
                 c = cache(self)
                 if c is None:
                     return method(self, *args, **kwargs)
