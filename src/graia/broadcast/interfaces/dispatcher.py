@@ -123,8 +123,8 @@ class DispatcherInterface(Generic[T_Event]):
         return self.execution_contexts[-1]._index
 
     @property
-    def event(self) -> Dispatchable:
-        return self.broadcast.event_ctx.get()
+    def event(self) -> T_Event:
+        return self.broadcast.event_ctx.get()  # type: ignore
 
     @property
     def global_dispatcher(self) -> List[T_Dispatcher]:
