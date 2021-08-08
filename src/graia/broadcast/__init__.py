@@ -322,7 +322,7 @@ class Broadcast:
         self,
         event: Union[str, Type[Dispatchable]],
         priority: int = 16,
-        dispatchers: List[Type[BaseDispatcher]] = [],
+        dispatchers: List[T_Dispatcher] = [],
         namespace: Namespace = None,
         decorators: List[Decorator] = [],
     ):
