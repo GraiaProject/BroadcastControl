@@ -1,5 +1,5 @@
 import itertools
-from functools import cache, lru_cache, partial
+from functools import lru_cache, partial
 from inspect import isclass, isfunction
 from typing import (TYPE_CHECKING, Any, Dict, Generator, Generic, Iterable,
                     List, Optional, Sequence, TypeVar)
