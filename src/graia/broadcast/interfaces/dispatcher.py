@@ -1,19 +1,31 @@
 import itertools
-from functools import lru_cache, partial
-from inspect import isclass, isfunction
-from typing import (TYPE_CHECKING, Any, Dict, Generator, Generic, Iterable,
-                    List, Optional, Sequence, TypeVar)
+from functools import lru_cache
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Sequence,
+    TypeVar,
+)
 
-from graia.broadcast.cache import cached, hashkey
-from graia.broadcast.entities.context import (LF_TEMPLATE, ExecutionContext,
-                                              ParameterContext)
+from graia.broadcast.entities.context import (
+    LF_TEMPLATE,
+    ExecutionContext,
+    ParameterContext,
+)
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import Dispatchable
 from graia.broadcast.entities.signatures import Force
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 from graia.broadcast.exceptions import RequirementCrashed
-from graia.broadcast.typing import (DEFAULT_LIFECYCLE_NAMES, T_Dispatcher,
-                                    T_Dispatcher_Callable)
+from graia.broadcast.typing import (
+    DEFAULT_LIFECYCLE_NAMES,
+    T_Dispatcher,
+    T_Dispatcher_Callable,
+)
 
 from ..utilles import cached_getattr, run_always_await_safely
 
@@ -29,6 +41,16 @@ class EmptyEvent(Dispatchable):
 
 
 T_Event = TypeVar("T_Event", bound=Dispatchable)
+
+
+LIFECYCLE_ABS = {
+    BaseDispatcher.beforeDispatch,
+    BaseDispatcher.beforeExecution,
+    BaseDispatcher.beforeTargetExec,
+    BaseDispatcher.afterDispatch,
+    BaseDispatcher.afterExecution,
+    BaseDispatcher.afterTargetExec,
+}
 
 
 class DispatcherInterface(Generic[T_Event]):
@@ -54,10 +76,10 @@ class DispatcherInterface(Generic[T_Event]):
     @lru_cache(maxsize=None)
     def get_lifecycle_refs(dispatcher: T_Dispatcher) -> Dict:
         result = {}
-        
+
         for name in DEFAULT_LIFECYCLE_NAMES:
             v = cached_getattr(dispatcher, name, None)
-            if v:
+            if v and v.__func__ not in LIFECYCLE_ABS:
                 result[name] = v
         return result
 
@@ -71,7 +93,11 @@ class DispatcherInterface(Generic[T_Event]):
         if dispatchers is None and lifecycle_refs != LF_TEMPLATE:
             return
 
-        for dispatcher in dispatchers or self.dispatcher_pure_generator():
+        for dispatcher in dispatchers or itertools.chain(
+            self.execution_contexts[0].dispatchers,
+            self.parameter_contexts[-1].dispatchers,
+            self.execution_contexts[-1].dispatchers,
+        ):
             if (
                 not isinstance(dispatcher, BaseDispatcher)
                 and dispatcher.__class__ is not type
@@ -84,15 +110,13 @@ class DispatcherInterface(Generic[T_Event]):
                     lifecycle_refs[k].append(v)
 
     async def exec_lifecycle(self, lifecycle_name: str, *args, **kwargs):
-        lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(
-            lifecycle_name, []
-        )
+        lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(lifecycle_name)
         if lifecycle_funcs:
             for func in lifecycle_funcs:
                 await run_always_await_safely(func, self, *args, **kwargs)
 
     def inject_local_raw(self, *dispatchers: "T_Dispatcher"):
-        # 为什么没有 flush: 因为这里的 lifecycle 是无意义的.
+        # 为什么没有 flush: 因为这里的 lifecycle 是无意义的, 不会被 exec.
         for dispatcher in dispatchers[::-1]:
             self.parameter_contexts[-1].dispatchers.insert(0, dispatcher)
 
@@ -165,36 +189,28 @@ class DispatcherInterface(Generic[T_Event]):
         return self
 
     async def __aexit__(self, _, exc: Exception, tb):
-        await self.exit_current_execution()
+        self.execution_contexts.pop()
+        self.track_logs.pop()
         if tb is not None:
             raise exc.with_traceback(tb)
 
     def start_execution(
         self,
         dispatchers: List[T_Dispatcher],
-        track_log_receiver: TrackLog = None,
+        track_log_receiver: TrackLog,
     ) -> "DispatcherInterface":
         self.execution_contexts.append(ExecutionContext(dispatchers))
-        try:
-            self.flush_lifecycle_refs()
-        except:
-            import traceback
-            traceback.print_exc()
-        self.track_logs.append(track_log_receiver or TrackLog())
+        self.track_logs.append(track_log_receiver)
+        self.flush_lifecycle_refs()
         return self
 
-    async def exit_current_execution(self):
-        self.execution_contexts.pop()
-        self.track_logs.pop()
-
     @staticmethod
-    @cached({}, hashkey)
+    @lru_cache(maxsize=None)
     def dispatcher_callable_detector(dispatcher: T_Dispatcher) -> T_Dispatcher_Callable:
+        # 没人有兴趣玩魔法吧..
+        # 这里之前判定了下 dispatcher is class......是 staticmethod 检查啊.
         if hasattr(dispatcher, "catch"):
-            if isfunction(dispatcher.catch) or not isclass(dispatcher):
-                return dispatcher.catch  # type: ignore
-            else:
-                return partial(dispatcher.catch, None)
+            return dispatcher.catch  # type: ignore
         elif callable(dispatcher):
             return dispatcher
         else:

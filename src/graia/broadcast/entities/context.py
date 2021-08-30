@@ -10,6 +10,8 @@ LF_TEMPLATE = {i: list() for i in DEFAULT_LIFECYCLE_NAMES}
 
 
 class DII_NestableIterable:
+    __slots__ = ("iterable", "indexes")
+
     iterable: List
     indexes: List
 
@@ -19,8 +21,8 @@ class DII_NestableIterable:
 
     def __iter__(self):
         dis_set_index, dis_index = self.indexes[-1]
-        dis_set_index_offset = dis_set_index + bool(dis_set_index)
-        dis_index_offset = dis_index + bool(dis_index)
+        dis_set_index_offset = dis_set_index + (dis_set_index and 1)
+        dis_index_offset = dis_index + (dis_index and 1)
 
         current_indexes = [dis_set_index_offset, dis_index_offset]
         self.indexes.append(current_indexes)
@@ -35,7 +37,7 @@ class DII_NestableIterable:
 
 
 class ExecutionContext:
-    __slots__ = {"event", "_index", "lifecycle_refs", "dispatchers"}
+    __slots__ = ("event", "_index", "lifecycle_refs", "dispatchers")
 
     _index: int
     lifecycle_refs: Dict[str, List[Callable]]
@@ -49,7 +51,7 @@ class ExecutionContext:
 
 
 class ParameterContext:
-    __slots__ = {"name", "annotation", "default", "dispatchers", "path"}
+    __slots__ = ("name", "annotation", "default", "dispatchers", "path")
 
     name: str
     annotation: Any

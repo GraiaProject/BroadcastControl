@@ -1,8 +1,7 @@
 import asyncio
 import sys
 import traceback
-from typing import (Callable, Dict, Generator, Iterable, List, Optional, Set,
-                    Type, Union)
+from typing import Callable, Dict, Generator, Iterable, List, Optional, Set, Type, Union
 
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 
@@ -14,16 +13,28 @@ from .entities.exectarget import ExecTarget
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
-                         InvaildEventName, PropagationCancelled,
-                         RegisteredEventListener, RequirementCrashed,
-                         UnexistedNamespace)
+from .exceptions import (
+    DisabledNamespace,
+    ExecutionStop,
+    ExistedNamespace,
+    InvaildEventName,
+    PropagationCancelled,
+    RegisteredEventListener,
+    RequirementCrashed,
+    UnexistedNamespace,
+)
 from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
-from .utilles import (Ctx, argument_signature, cached_isinstance,
-                      dispatcher_mixin_handler, group_dict, printer,
-                      run_always_await_safely)
+from .utilles import (
+    Ctx,
+    argument_signature,
+    cached_isinstance,
+    dispatcher_mixin_handler,
+    group_dict,
+    printer,
+    run_always_await_safely,
+)
 
 
 class Broadcast:

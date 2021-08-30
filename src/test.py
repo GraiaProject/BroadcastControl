@@ -55,7 +55,7 @@ async def r(r: str, d: str, c: str):
     pass
 
 
-count = 50000
+count = 100000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -70,14 +70,28 @@ for _ in range(count):
     #    loop.create_task(broadcast.Executor(listener, event)))
     tasks.append(broadcast.Executor(listener, dispatchers=mixins))
 
+import yappi
 s = time.time()
 
+"""
+yappi.set_clock_type("WALL")
+with yappi.run():
+    loop.run_until_complete(asyncio.gather(*tasks))
+yappi.get_func_stats().print_all(
+    columns={ 0: ("name", 60),1: ("ncall", 8),2: ("tsub", 10),3: ("ttot", 10),4: ("tavg", 10) }
+)
+"""
+loop.run_until_complete(asyncio.gather(*tasks))
+
+
+"""
 try:
     #cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))", "perf.prof")
     loop.run_until_complete(asyncio.gather(*tasks))
     # loop.run_until_complete(asyncio.gather(*[r(1, 2, 3, 4) for _ in range(count)]))
 except:
     pass
+"""
 # loop.run_until_complete(asyncio.sleep(0.1))
 e = time.time()
 n = e - s
