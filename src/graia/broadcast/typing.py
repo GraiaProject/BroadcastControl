@@ -12,10 +12,7 @@ T_Dispatcher = Union[
 T_Dispatcher_Callable = Callable[["DispatcherInterface"], Any]
 
 DEFAULT_LIFECYCLE_NAMES = (
-    "beforeDispatch",
-    "afterDispatch",
     "beforeExecution",
+    "afterDispatch",
     "afterExecution",
-    "beforeTargetExec",
-    "afterTargetExec",
 )

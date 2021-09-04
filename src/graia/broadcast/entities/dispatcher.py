@@ -27,16 +27,6 @@ class BaseDispatcher(metaclass=ABCMeta):
         """
         pass
 
-    def beforeDispatch(self, interface: "DispatcherInterface"):
-        """生命周期钩子: 在解析参数前被调用
-
-        Args:
-            interface (DispatcherInterface): `Dispatcher` 服务的主要对象, 可以从其中获取以下信息:
-             - 当前解析中的参数的信息;
-             - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
-        """
-        pass
-
     def afterDispatch(
         self,
         interface: "DispatcherInterface",
@@ -78,42 +68,5 @@ class BaseDispatcher(metaclass=ABCMeta):
              - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
             exception (Optional[Exception]): 可能存在的异常对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
             tb (Optional[TracebackType]): 可能存在的异常堆栈对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
-        """
-        pass
-
-    def beforeTargetExec(self, interface: "DispatcherInterface"):
-        """生命周期钩子: 在参数解析完成后, 准备执行事件执行主体前被调用.
-
-        Args:
-            interface (DispatcherInterface): `Dispatcher` 服务的主要对象, 可以从其中获取以下信息:
-             - 当前解析中的参数的信息;
-             - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
-        """
-        pass
-
-    def afterTargetExec(
-        self,
-        interface: "DispatcherInterface",
-        exception: Optional[Exception],
-        tb: Optional[TracebackType],
-    ):
-        """生命周期钩子: 在事件执行主体被执行完成后被调用.
-
-        Args:
-            interface (DispatcherInterface): `Dispatcher` 服务的主要对象, 可以从其中获取以下信息:
-             - 当前解析中的参数的信息;
-             - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
-            exception (Optional[Exception]): 可能存在的异常对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
-            tb (Optional[TracebackType]): 可能存在的异常堆栈对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
-        """
-        pass
-
-    def onActive(self, interface: "DispatcherInterface"):
-        """生命周期钩子: 在该 Dispatcher 可用于参数解析时被立即调用.
-
-        Args:
-            interface (DispatcherInterface): `Dispatcher` 服务的主要对象, 可以从其中获取以下信息:
-             - 当前解析中的参数的信息;
-             - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
         """
         pass

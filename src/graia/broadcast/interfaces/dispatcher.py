@@ -1,4 +1,4 @@
-import itertools
+from itertools import chain
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
@@ -7,7 +7,6 @@ from typing import (
     Generic,
     Iterable,
     List,
-    Sequence,
     TypeVar,
 )
 
@@ -44,12 +43,9 @@ T_Event = TypeVar("T_Event", bound=Dispatchable)
 
 
 LIFECYCLE_ABS = {
-    BaseDispatcher.beforeDispatch,
     BaseDispatcher.beforeExecution,
-    BaseDispatcher.beforeTargetExec,
     BaseDispatcher.afterDispatch,
     BaseDispatcher.afterExecution,
-    BaseDispatcher.afterTargetExec,
 }
 
 
@@ -66,7 +62,7 @@ class DispatcherInterface(Generic[T_Event]):
         return self.track_logs[-1]
 
     def dispatcher_pure_generator(self) -> Iterable[T_Dispatcher]:
-        return itertools.chain(
+        return chain(
             self.execution_contexts[0].dispatchers,
             self.parameter_contexts[-1].dispatchers,
             self.execution_contexts[-1].dispatchers,
@@ -85,22 +81,16 @@ class DispatcherInterface(Generic[T_Event]):
 
     def flush_lifecycle_refs(
         self,
-        dispatchers: Sequence["T_Dispatcher"] = None,
+        dispatchers: Iterable["T_Dispatcher"],
     ):
         from graia.broadcast.entities.dispatcher import BaseDispatcher
 
         lifecycle_refs = self.execution_contexts[-1].lifecycle_refs
-        if dispatchers is None and lifecycle_refs != LF_TEMPLATE:
-            return
 
-        for dispatcher in dispatchers or itertools.chain(
-            self.execution_contexts[0].dispatchers,
-            self.parameter_contexts[-1].dispatchers,
-            self.execution_contexts[-1].dispatchers,
-        ):
+        for dispatcher in dispatchers:
             if (
-                not isinstance(dispatcher, BaseDispatcher)
-                and dispatcher.__class__ is not type
+                dispatcher.__class__ is not type
+                and not isinstance(dispatcher, BaseDispatcher)
             ):
                 continue
 
@@ -144,10 +134,6 @@ class DispatcherInterface(Generic[T_Event]):
     @property
     def default(self) -> Any:
         return self.parameter_contexts[-1].default
-
-    @property
-    def _index(self) -> int:
-        return self.execution_contexts[-1]._index
 
     @property
     def event(self) -> T_Event:
@@ -201,7 +187,7 @@ class DispatcherInterface(Generic[T_Event]):
     ) -> "DispatcherInterface":
         self.execution_contexts.append(ExecutionContext(dispatchers))
         self.track_logs.append(track_log_receiver)
-        self.flush_lifecycle_refs()
+        self.flush_lifecycle_refs(self.dispatcher_pure_generator())
         return self
 
     @staticmethod
@@ -240,9 +226,7 @@ class DispatcherInterface(Generic[T_Event]):
         result = None
         try:
             for dispatcher in self.current_path:
-                result = await run_always_await_safely(
-                    self.dispatcher_callable_detector(dispatcher), self
-                )
+                result = await self.dispatcher_callable_detector(dispatcher)(self)
 
                 if result is None:
                     continue
@@ -250,7 +234,6 @@ class DispatcherInterface(Generic[T_Event]):
                 if result.__class__ is Force:
                     result = result.target
 
-                self.execution_contexts[-1]._index = 0
                 return result
             else:
                 raise RequirementCrashed(
@@ -279,9 +262,7 @@ class DispatcherInterface(Generic[T_Event]):
         track_log.append((TrackLogType.LookupStart, name, annotation, default))
         try:
             for dispatcher in self.current_path:
-                result = await run_always_await_safely(
-                    self.dispatcher_callable_detector(dispatcher), self
-                )
+                result = await self.dispatcher_callable_detector(dispatcher)(self)
 
                 if result is None:
                     self.track_log.fluent_success = False
@@ -292,7 +273,6 @@ class DispatcherInterface(Generic[T_Event]):
                     result = result.target
 
                 track_log.append((TrackLogType.Result, name, dispatcher))
-                self.execution_contexts[-1]._index = 0
                 return result
             else:
                 track_log.append((TrackLogType.RequirementCrashed, name))
@@ -309,16 +289,13 @@ class DispatcherInterface(Generic[T_Event]):
     async def lookup_using_current(self) -> Any:
         result = None
         for dispatcher in self.current_path:
-            result = await run_always_await_safely(
-                self.dispatcher_callable_detector(dispatcher), self
-            )
+            result = await self.dispatcher_callable_detector(dispatcher)(self)
             if result is None:
                 continue
 
             if result.__class__ is Force:
                 result = result.target
 
-            self.execution_contexts[-1]._index = 0
             return result
         else:
             raise RequirementCrashed(
@@ -345,7 +322,7 @@ class DispatcherInterface(Generic[T_Event]):
         dispatcher_callable = self.dispatcher_callable_detector(dispatcher)
 
         try:
-            result = await run_always_await_safely(dispatcher_callable, self)
+            result = await dispatcher_callable(self)
             if result.__class__ is Force:
                 return result.target
 

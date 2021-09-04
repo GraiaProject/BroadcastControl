@@ -139,10 +139,8 @@ class Broadcast:
             ],
             track_logs,
         ) as dii:
-            await dii.exec_lifecycle("beforeExecution")
             try:
-                await dii.exec_lifecycle("beforeDispatch")
-
+                await dii.exec_lifecycle("beforeExecution")
                 if is_exectarget:
                     if target.maybe_failure:
                         initial_path = dii.init_dispatch_path()
@@ -185,9 +183,11 @@ class Broadcast:
                             name, annotation, default, target.param_paths[name]  # type: ignore
                         )
 
+                await dii.exec_lifecycle("afterDispatch", None, None)
                 result = await run_always_await_safely(
                     target_callable, **parameter_compile_result
                 )
+
             except (ExecutionStop, PropagationCancelled):
                 raise
             except RequirementCrashed:
@@ -202,8 +202,6 @@ class Broadcast:
                 raise
             finally:
                 _, exception, tb = sys.exc_info()
-                await dii.exec_lifecycle("afterDispatch", exception, tb)
-                await dii.exec_lifecycle("afterTargetExec", exception, tb)
                 await dii.exec_lifecycle("afterExecution", exception, tb)
 
                 if is_exectarget and not track_logs.fluent_success:
@@ -232,8 +230,7 @@ class Broadcast:
 
             if result.__class__ is Force:
                 return result.content
-
-            if result.__class__ is RemoveMe:
+            elif result.__class__ is RemoveMe:
                 if cached_isinstance(target, Listener):
                     if target in self.listeners:
                         self.listeners.pop(self.listeners.index(target))
