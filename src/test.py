@@ -17,7 +17,7 @@ import time
 # import objgraph
 # import copy
 import functools
-from graia.broadcast.utilles import cached_isinstance, cached_getattr
+from graia.broadcast.utilles import cached_getattr
 
 from graia.broadcast.utilles import dispatcher_mixin_handler
 
@@ -28,7 +28,7 @@ class TestEvent(Dispatchable):
         async def catch(interface: "DispatcherInterface"):
             if interface.annotation is str:
                 return "1"
-        
+
         @staticmethod
         async def beforeDispatch(interface: "DispatcherInterface"):
             pass
@@ -71,6 +71,7 @@ for _ in range(count):
     tasks.append(broadcast.Executor(listener, dispatchers=mixins))
 
 import yappi
+
 s = time.time()
 
 """
@@ -96,7 +97,6 @@ except:
 e = time.time()
 n = e - s
 print(f"used {n}, {count/n}o/s")
-print(cached_isinstance.cache_info())
 print(cached_getattr.cache_info())
 # print(tasks)
 print(listener.maybe_failure)

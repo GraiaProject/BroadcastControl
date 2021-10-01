@@ -62,9 +62,7 @@ def group_dict(iterable: Iterable, key_callable: Callable[[Any], Any]):
 
 cache_size = 4096
 
-origin_isinstance = isinstance
 
-cached_isinstance = lru_cache(1024)(isinstance)
 cached_getattr = lru_cache(cache_size)(getattr)
 
 
