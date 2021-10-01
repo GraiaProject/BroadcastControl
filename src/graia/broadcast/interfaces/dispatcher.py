@@ -1,5 +1,5 @@
-from itertools import chain
 from functools import lru_cache
+from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -11,7 +11,6 @@ from typing import (
 )
 
 from graia.broadcast.entities.context import (
-    LF_TEMPLATE,
     ExecutionContext,
     ParameterContext,
 )
