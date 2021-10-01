@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import traceback
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Set, Type, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 
