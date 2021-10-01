@@ -17,7 +17,6 @@ import time
 # import objgraph
 # import copy
 import functools
-from graia.broadcast.utilles import cached_getattr
 
 from graia.broadcast.utilles import dispatcher_mixin_handler
 
@@ -97,7 +96,6 @@ except:
 e = time.time()
 n = e - s
 print(f"used {n}, {count/n}o/s")
-print(cached_getattr.cache_info())
 # print(tasks)
 print(listener.maybe_failure)
 print(listener.param_paths)

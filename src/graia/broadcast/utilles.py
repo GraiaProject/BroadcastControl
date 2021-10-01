@@ -63,9 +63,6 @@ def group_dict(iterable: Iterable, key_callable: Callable[[Any], Any]):
 cache_size = 4096
 
 
-cached_getattr = lru_cache(cache_size)(getattr)
-
-
 @lru_cache(cache_size)
 def argument_signature(callable_target):
     return [

@@ -26,7 +26,7 @@ from graia.broadcast.typing import (
     T_Dispatcher_Callable,
 )
 
-from ..utilles import cached_getattr, run_always_await_safely
+from ..utilles import run_always_await_safely
 
 if TYPE_CHECKING:
     from graia.broadcast import Broadcast
@@ -74,7 +74,7 @@ class DispatcherInterface(Generic[T_Event]):
         result = {}
 
         for name in DEFAULT_LIFECYCLE_NAMES:
-            v = cached_getattr(dispatcher, name, None)
+            v = getattr(dispatcher, name, None)
             if v and v.__func__ not in LIFECYCLE_ABS:
                 result[name] = v
         return result
@@ -88,9 +88,8 @@ class DispatcherInterface(Generic[T_Event]):
         lifecycle_refs = self.execution_contexts[-1].lifecycle_refs
 
         for dispatcher in dispatchers:
-            if (
-                dispatcher.__class__ is not type
-                and not isinstance(dispatcher, BaseDispatcher)
+            if dispatcher.__class__ is not type and not isinstance(
+                dispatcher, BaseDispatcher
             ):
                 continue
 
