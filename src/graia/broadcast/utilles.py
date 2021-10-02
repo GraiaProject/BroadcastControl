@@ -46,7 +46,7 @@ class Ctx(Generic[T]):
         self.reset(token)
 
 
-def printer(value):
+def printer(value: Any):
     print(value)
     return value
 
@@ -69,12 +69,12 @@ cached_getattr = lru_cache(cache_size)(getattr)
 
 
 @lru_cache(cache_size)
-def argument_signature(callable_target):
+def argument_signature(callable_target: Callable):
     return [
         (
             name,
-            param.annotation if param.annotation != inspect._empty else None,  # type: ignore
-            param.default if param.default != inspect._empty else None,  # type: ignore
+            param.annotation if param.annotation != inspect.Signature.empty else None,
+            param.default if param.default != inspect.Signature.empty else None,
         )
         for name, param in dict(inspect.signature(callable_target).parameters).items()
     ]
@@ -108,5 +108,5 @@ def dispatcher_mixin_handler(dispatcher: Union[Type[BaseDispatcher], BaseDispatc
     return result
 
 
-## NestableIterable impl migrated to:
-## > https://gist.github.com/GreyElaina/f9a5f998ec1c3fc7bddb811ce046d0ca
+# NestableIterable impl migrated to:
+# > https://gist.github.com/GreyElaina/f9a5f998ec1c3fc7bddb811ce046d0ca
