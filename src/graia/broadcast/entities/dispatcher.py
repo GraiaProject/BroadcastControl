@@ -3,7 +3,7 @@ from types import TracebackType
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from graia.broadcast.interfaces.dispatcher import DispatcherInterface
+    from ..interfaces.dispatcher import DispatcherInterface
 
 
 class BaseDispatcher(metaclass=ABCMeta):
