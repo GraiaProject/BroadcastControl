@@ -1,9 +1,7 @@
 import asyncio
 import sys
 import traceback
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Set, Type, Union
-
-from graia.broadcast.entities.track_log import TrackLog, TrackLogType
+from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
 from .builtin.event import ExceptionThrowed
 from .entities.decorator import Decorator
@@ -13,6 +11,7 @@ from .entities.exectarget import ExecTarget
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
+from .entities.track_log import TrackLog, TrackLogType
 from .exceptions import (
     DisabledNamespace,
     ExecutionStop,
@@ -102,7 +101,7 @@ class Broadcast:
         with self.event_ctx.use(event):
             for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
                 coros = [
-                    self.Executor(target=i, dispatchers=event_dispatcher_mixin)  # type: ignore
+                    self.Executor(target=i, dispatchers=event_dispatcher_mixin)
                     for i in current_group
                 ]
                 done_tasks, _ = await asyncio.wait(coros)
@@ -117,14 +116,17 @@ class Broadcast:
         post_exception_event: bool = True,
         print_exception: bool = True,
     ):
-        is_exectarget = cached_isinstance(target, ExecTarget)
-        is_listener = cached_isinstance(target, Listener)
-        event: Optional[Dispatchable] = self.event_ctx.get(None)
+        is_exectarget = is_listener = False
+        if isinstance(target, Listener):
+            is_exectarget = is_listener = True
+        elif isinstance(target, ExecTarget):
+            is_exectarget = True
+        event: Optional[Dispatchable] = self.event_ctx.get()
 
         if is_listener:
-            if target.namespace.disabled:  # type: ignore
+            if target.namespace.disabled:
                 raise DisabledNamespace(
-                    "catched a disabled namespace: {0}".format(target.namespace.name)  # type: ignore
+                    "catched a disabled namespace: {0}".format(target.namespace.name)
                 )
 
         target_callable = target.callable if is_exectarget else target
@@ -134,7 +136,7 @@ class Broadcast:
         async with self.dispatcher_interface.start_execution(
             [
                 *(dispatchers or []),
-                *(target.namespace.injected_dispatchers if is_listener else []),  # type: ignore
+                *(target.namespace.injected_dispatchers if is_listener else []),
                 *(target.inline_dispatchers if is_exectarget else []),
             ],
             track_logs,
@@ -153,7 +155,7 @@ class Broadcast:
                             ):
                                 target.param_paths[name + "$set"] = set()
                             parameter_compile_result[name] = await dii.lookup_param(
-                                name, annotation, default, target.param_paths[name]  # type: ignore
+                                name, annotation, default, target.param_paths[name]
                             )
                     else:
                         for name, annotation, default in argument_signature(
@@ -162,7 +164,7 @@ class Broadcast:
                             parameter_compile_result[
                                 name
                             ] = await dii.lookup_param_without_log(
-                                name, annotation, default, target.param_paths[name]  # type: ignore
+                                name, annotation, default, target.param_paths[name]
                             )
 
                     for hl_d in target.decorators:
@@ -180,7 +182,7 @@ class Broadcast:
                         parameter_compile_result[
                             name
                         ] = await dii.lookup_param_without_log(
-                            name, annotation, default, target.param_paths[name]  # type: ignore
+                            name, annotation, default, target.param_paths[name]
                         )
 
                 await dii.exec_lifecycle("afterDispatch", None, None)
@@ -212,17 +214,17 @@ class Broadcast:
 
                     for log in track_logs.log:
                         if log[0] is TrackLogType.LookupStart:
-                            current_path = current_paths[log[1]]  # type: ignore
-                            current_path_set = current_paths[log[1] + "$set"]  # type: ignore
+                            current_path = current_paths[log[1]]
+                            current_path_set = current_paths[log[1] + "$set"]
                         elif log[0] is TrackLogType.LookupEnd:
                             current_path = None
                         elif (
                             current_path is not None
                             and log[0] is TrackLogType.Result
-                            and log[2] not in current_path_set  # type: ignore
+                            and log[2] not in current_path_set
                         ):
-                            current_path[0].append(log[2])  # type: ignore
-                            current_path_set.add(log[2])  # type: ignore
+                            current_path[0].append(log[2])
+                            current_path_set.add(log[2])
                         elif log[0] is TrackLogType.Continue:
                             has_failures.add(log[1])
 
@@ -231,9 +233,8 @@ class Broadcast:
             if result.__class__ is Force:
                 return result.content
             elif result.__class__ is RemoveMe:
-                if cached_isinstance(target, Listener):
-                    if target in self.listeners:
-                        self.listeners.pop(self.listeners.index(target))
+                if is_listener and target in self.listeners:
+                    self.listeners.remove(target)
 
             return result
 
@@ -330,16 +331,16 @@ class Broadcast:
         self,
         event: Union[str, Type[Dispatchable]],
         priority: int = 16,
-        dispatchers: List[T_Dispatcher] = [],
+        dispatchers: List[T_Dispatcher] = None,
         namespace: Namespace = None,
-        decorators: List[Decorator] = [],
+        decorators: List[Decorator] = None,
     ):
         if cached_isinstance(event, str):
             _name = event
-            event = self.findEvent(event)  # type: ignore
+            event = self.findEvent(event)
             if not event:
                 raise InvaildEventName(_name + " is not vaild!")  # type: ignore
-        priority = (type(priority) == int) and priority or int(priority)  # 类型转换
+        priority = int(priority)
 
         def receiver_wrapper(callable_target):
             may_listener = self.getListener(callable_target)
@@ -348,17 +349,19 @@ class Broadcast:
                     Listener(
                         callable=callable_target,
                         namespace=namespace or self.getDefaultNamespace(),
-                        inline_dispatchers=dispatchers,  # type: ignore
+                        inline_dispatchers=dispatchers,
                         priority=priority,
-                        listening_events=[event],  # type: ignore
+                        listening_events=[event],
                         decorators=decorators,
                     )
                 )
             else:
                 if event not in may_listener.listening_events:
-                    may_listener.listening_events.append(event)  # type: ignore
+                    may_listener.listening_events.append(event)
                 else:
-                    raise RegisteredEventListener(event.__name__, "has been registered!")  # type: ignore
+                    raise RegisteredEventListener(
+                        event.__name__, "has been registered!"
+                    )
             return callable_target
 
         return receiver_wrapper
