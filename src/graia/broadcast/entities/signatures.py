@@ -6,7 +6,7 @@ class ObjectContainer:
 
     def __init__(self, content: Union["ObjectContainer", Any] = None):
         if content.__class__ is self.__class__:
-            content = content.target  # type: ignore
+            content = content.target
         self.target = content
 
 
