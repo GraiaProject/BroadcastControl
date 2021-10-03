@@ -1,13 +1,12 @@
 import typing
-from typing import Any, Optional
-
-from graia.broadcast.entities.exectarget import ExecTarget
-from graia.broadcast.utilles import dispatcher_mixin_handler
+from typing import Any, Callable, Optional
 
 from ..entities.decorator import Decorator
+from ..entities.exectarget import ExecTarget
 from ..entities.signatures import Force
 from ..exceptions import RequirementCrashed
 from ..interfaces.decorator import DecoratorInterface
+from ..utilles import dispatcher_mixin_handler
 
 
 class Depend(Decorator):
@@ -15,7 +14,7 @@ class Depend(Decorator):
     depend_callable: ExecTarget
     cache: bool = False
 
-    def __init__(self, callable, *, cache=False):
+    def __init__(self, callable: Callable, *, cache=False):
         self.cache = cache
         self.depend_callable = ExecTarget(callable)
 
@@ -29,8 +28,7 @@ class Depend(Decorator):
                 return Force(attempt)
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
-            dispatchers=dispatcher_mixin_handler(interface.event.Dispatcher),  # type: ignore
-            post_exception_event=True,
+            dispatchers=dispatcher_mixin_handler(interface.event.Dispatcher),
         )
 
         if self.cache:
@@ -59,4 +57,4 @@ class OptionalParam(Decorator):
                 )
             )
         except RequirementCrashed:
-            return Force(None)
+            return Force()
