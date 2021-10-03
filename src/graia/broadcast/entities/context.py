@@ -1,5 +1,4 @@
-import copy
-from typing import Any, Callable, Dict, Iterable, List, TypeVar
+from typing import Any, Callable, Dict, List, TypeVar
 
 from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher
 
@@ -19,7 +18,7 @@ class DII_NestableIterable:
         self.iterable = iterable
         self.indexes = [[0, 0]]
 
-    def __iter__(self):
+    def __iter__(self) -> T_Dispatcher:
         dis_set_index, dis_index = self.indexes[-1]
         dis_set_index_offset = dis_set_index + (dis_set_index and 1)
         dis_index_offset = dis_index + (dis_index and 1)
@@ -70,6 +69,3 @@ class ParameterContext:
                 self.name, self.annotation, self.default, self.dispatchers
             )
         )
-
-
-from .event import Dispatchable
