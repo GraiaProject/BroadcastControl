@@ -1,12 +1,10 @@
-from typing import TYPE_CHECKING, Callable, List, Type
+from typing import Callable, List, Type
 
 from .decorator import Decorator
 from .event import Dispatchable
 from .exectarget import ExecTarget
 from .namespace import Namespace
-
-if TYPE_CHECKING:
-    from graia.broadcast.typing import T_Dispatcher
+from ..typing import T_Dispatcher
 
 
 class Listener(ExecTarget):
@@ -19,7 +17,7 @@ class Listener(ExecTarget):
         callable: Callable,
         namespace: Namespace,
         listening_events: List[Type[Dispatchable]],
-        inline_dispatchers: List["T_Dispatcher"] = None,
+        inline_dispatchers: List[T_Dispatcher] = None,
         decorators: List[Decorator] = None,
         priority: int = 16,
     ) -> None:

@@ -1,8 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, List, Type
 
-from graia.broadcast.entities.decorator import Decorator
-
+from ..entities.decorator import Decorator
 from ..entities.event import Dispatchable
 from ..typing import T_Dispatcher
 
@@ -28,7 +27,7 @@ class Waiter(metaclass=ABCMeta):
 
         return type(  # type: ignore
             "AbstractWaiter",
-            (cls,),  # type: ignore
+            (cls,),
             {
                 "listening_events": listening_events,
                 "using_dispatchers": using_dispatchers,

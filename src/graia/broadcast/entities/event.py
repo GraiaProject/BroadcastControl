@@ -1,11 +1,10 @@
-from typing import TYPE_CHECKING, Type
+from typing import Type
 
-if TYPE_CHECKING:
-    from .dispatcher import BaseDispatcher
+from .dispatcher import BaseDispatcher
 
 
 class Dispatchable:
-    Dispatcher: Type["BaseDispatcher"]
+    Dispatcher: Type[BaseDispatcher]
 
 
 BaseEvent = Dispatchable

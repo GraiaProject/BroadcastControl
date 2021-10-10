@@ -1,15 +1,13 @@
-import asyncio
-from asyncio.futures import Future
-from typing import Any, Optional, Type, Union
+from asyncio import Future, get_running_loop
+from typing import Optional, Type, Union
 
-from graia.broadcast import Broadcast
-from graia.broadcast.entities.event import Dispatchable
-from graia.broadcast.entities.exectarget import ExecTarget
-from graia.broadcast.entities.signatures import RemoveMe
-from graia.broadcast.exceptions import PropagationCancelled
-from graia.broadcast.priority import Priority
-from graia.broadcast.utilles import dispatcher_mixin_handler
-
+from .. import Broadcast
+from ..entities.event import Dispatchable
+from ..entities.exectarget import ExecTarget
+from ..entities.signatures import RemoveMe
+from ..exceptions import PropagationCancelled
+from ..priority import Priority
+from ..utilles import dispatcher_mixin_handler
 from .waiter import Waiter
 
 
@@ -41,7 +39,7 @@ class InterruptControl:
         Returns:
             Any: 通常这个值由中断本身定义并返回.
         """
-        future = asyncio.get_running_loop().create_future()
+        future = get_running_loop().create_future()
 
         listeners = set()
         for event_type in waiter.listening_events:
@@ -74,7 +72,7 @@ class InterruptControl:
                     inline_dispatchers=waiter.using_dispatchers,
                     decorators=waiter.using_decorators,
                 ),
-                dispatchers=dispatcher_mixin_handler(event.Dispatcher),  # type: ignore
+                dispatchers=dispatcher_mixin_handler(event.Dispatcher),
             )
 
             if result is not None:
