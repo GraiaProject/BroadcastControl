@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import traceback
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Set, Type, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
 from graia.broadcast.entities.track_log import TrackLog, TrackLogType
 
@@ -29,7 +29,6 @@ from .typing import T_Dispatcher
 from .utilles import (
     Ctx,
     argument_signature,
-    cached_isinstance,
     dispatcher_mixin_handler,
     group_dict,
     printer,
@@ -117,8 +116,8 @@ class Broadcast:
         post_exception_event: bool = True,
         print_exception: bool = True,
     ):
-        is_exectarget = cached_isinstance(target, ExecTarget)
-        is_listener = cached_isinstance(target, Listener)
+        is_exectarget = isinstance(target, ExecTarget)
+        is_listener = isinstance(target, Listener)
         event: Optional[Dispatchable] = self.event_ctx.get(None)
 
         if is_listener:
@@ -231,7 +230,7 @@ class Broadcast:
             if result.__class__ is Force:
                 return result.content
             elif result.__class__ is RemoveMe:
-                if cached_isinstance(target, Listener):
+                if isinstance(target, Listener):
                     if target in self.listeners:
                         self.listeners.pop(self.listeners.index(target))
 
@@ -334,7 +333,7 @@ class Broadcast:
         namespace: Namespace = None,
         decorators: List[Decorator] = [],
     ):
-        if cached_isinstance(event, str):
+        if isinstance(event, str):
             _name = event
             event = self.findEvent(event)  # type: ignore
             if not event:
