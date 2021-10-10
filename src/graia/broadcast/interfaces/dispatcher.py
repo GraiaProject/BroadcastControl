@@ -13,7 +13,7 @@ from ..typing import (
     T_Dispatcher,
     T_Dispatcher_Callable,
 )
-from ..utilles import cached_getattr, run_always_await_safely
+from ..utilles import run_always_await_safely
 
 if TYPE_CHECKING:
     from .. import Broadcast
@@ -60,7 +60,7 @@ class DispatcherInterface(Generic[T_Event]):
         result = {}
 
         for name in DEFAULT_LIFECYCLE_NAMES:
-            v = cached_getattr(dispatcher, name, None)
+            v = getattr(dispatcher, name, None)
             if v and v.__func__ not in LIFECYCLE_ABS:
                 result[name] = v
         return result

@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict
 from ..entities.decorator import Decorator
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.signatures import Force
-from ..utilles import cached_isinstance, run_always_await_safely
+from ..utilles import run_always_await_safely
 
 if TYPE_CHECKING:
     from ..interfaces.dispatcher import DispatcherInterface
@@ -33,7 +33,7 @@ class DecoratorInterface(BaseDispatcher):
         return self.dispatcher_interface.event
 
     async def catch(self, interface: "DispatcherInterface"):
-        if cached_isinstance(interface.default, Decorator):
+        if isinstance(interface.default, Decorator):
             decorator: Decorator = interface.default
             if not decorator.pre:
                 # 作为 装饰

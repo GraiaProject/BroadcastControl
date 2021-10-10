@@ -28,7 +28,6 @@ from .typing import T_Dispatcher
 from .utilles import (
     Ctx,
     argument_signature,
-    cached_isinstance,
     dispatcher_mixin_handler,
     group_dict,
     printer,
@@ -335,7 +334,7 @@ class Broadcast:
         namespace: Namespace = None,
         decorators: List[Decorator] = None,
     ):
-        if cached_isinstance(event, str):
+        if isinstance(event, str):
             _name = event
             event = self.findEvent(event)
             if not event:

@@ -15,13 +15,24 @@ class TrackLogType(Enum):
     RequirementCrashed = 4
 
 
-T_TrackLogItem = Union[
-    Tuple[Literal[TrackLogType.LookupStart], str, Any, Any],
-    Tuple[Literal[TrackLogType.Continue], str, Any],
-    Tuple[Literal[TrackLogType.Result], str, "T_Dispatcher"],
-    Tuple[Literal[TrackLogType.LookupEnd], str],
-    Tuple[Literal[TrackLogType.RequirementCrashed], str],
-]
+import sys
+
+if sys.version_info >= (3, 8):
+    T_TrackLogItem = Union[
+        Tuple[Literal[TrackLogType.LookupStart], str, Any, Any],
+        Tuple[Literal[TrackLogType.Continue], str, Any],
+        Tuple[Literal[TrackLogType.Result], str, "T_Dispatcher"],
+        Tuple[Literal[TrackLogType.LookupEnd], str],
+        Tuple[Literal[TrackLogType.RequirementCrashed], str],
+    ]
+else:
+    T_TrackLogItem = Union[
+        Tuple[TrackLogType, str, Any, Any],
+        Tuple[TrackLogType, str, Any],
+        Tuple[TrackLogType, str, "T_Dispatcher"],
+        Tuple[TrackLogType, str],
+        Tuple[TrackLogType, str],
+    ]
 
 
 class TrackLog:
