@@ -8,8 +8,7 @@ from ..entities.event import Dispatchable
 from ..entities.signatures import Force
 from ..entities.track_log import TrackLog, TrackLogType
 from ..exceptions import RequirementCrashed
-from ..typing import (DEFAULT_LIFECYCLE_NAMES, T_Dispatcher,
-                      T_Dispatcher_Callable)
+from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher, T_Dispatcher_Callable
 from ..utilles import run_always_await_safely
 
 if TYPE_CHECKING:

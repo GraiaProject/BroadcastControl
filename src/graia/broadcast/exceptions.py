@@ -2,7 +2,7 @@ class OutOfMaxGenerater(Exception):
     pass
 
 
-class InvaildDispatcher(Exception):
+class InvalidDispatcher(Exception):
     pass
 
 
@@ -26,11 +26,11 @@ class RegisteredEventListener(Exception):
     pass
 
 
-class InvaildEventName(Exception):
+class InvalidEventName(Exception):
     pass
 
 
-class InvaildContextTarget(Exception):
+class InvalidContextTarget(Exception):
     pass
 
 

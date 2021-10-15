@@ -12,15 +12,27 @@ from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
 from .entities.track_log import TrackLog, TrackLogType
-from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
-                         InvaildEventName, PropagationCancelled,
-                         RegisteredEventListener, RequirementCrashed,
-                         UnexistedNamespace)
+from .exceptions import (
+    DisabledNamespace,
+    ExecutionStop,
+    ExistedNamespace,
+    InvalidEventName,
+    PropagationCancelled,
+    RegisteredEventListener,
+    RequirementCrashed,
+    UnexistedNamespace,
+)
 from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
-from .utilles import (Ctx, argument_signature, dispatcher_mixin_handler,
-                      group_dict, printer, run_always_await_safely)
+from .utilles import (
+    Ctx,
+    argument_signature,
+    dispatcher_mixin_handler,
+    group_dict,
+    printer,
+    run_always_await_safely,
+)
 
 
 class Broadcast:
@@ -305,7 +317,7 @@ class Broadcast:
             _name = event
             event = self.findEvent(event)
             if not event:
-                raise InvaildEventName(_name + " is not vaild!")  # type: ignore
+                raise InvalidEventName(_name + " is not vaild!")  # type: ignore
         priority = int(priority)
 
         def receiver_wrapper(callable_target):

@@ -48,9 +48,7 @@ class OptionalParam(Decorator):
                 await interface.dispatcher_interface.lookup_param(
                     interface.dispatcher_interface.name,
                     interface.dispatcher_interface.annotation.__args__[0]
-                    if isinstance(
-                        interface.dispatcher_interface.annotation, typing._GenericAlias  # type: ignore
-                    )
+                    if isinstance(interface.dispatcher_interface.annotation, typing._GenericAlias)  # type: ignore
                     and type(None) in interface.dispatcher_interface.annotation.__args__
                     else interface.dispatcher_interface.annotation,
                     self.origin,
