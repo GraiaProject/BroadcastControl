@@ -12,27 +12,15 @@ from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
 from .entities.track_log import TrackLog, TrackLogType
-from .exceptions import (
-    DisabledNamespace,
-    ExecutionStop,
-    ExistedNamespace,
-    InvaildEventName,
-    PropagationCancelled,
-    RegisteredEventListener,
-    RequirementCrashed,
-    UnexistedNamespace,
-)
+from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
+                         InvaildEventName, PropagationCancelled,
+                         RegisteredEventListener, RequirementCrashed,
+                         UnexistedNamespace)
 from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
-from .utilles import (
-    Ctx,
-    argument_signature,
-    dispatcher_mixin_handler,
-    group_dict,
-    printer,
-    run_always_await_safely,
-)
+from .utilles import (Ctx, argument_signature, dispatcher_mixin_handler,
+                      group_dict, printer, run_always_await_safely)
 
 
 class Broadcast:
@@ -131,49 +119,28 @@ class Broadcast:
         target_callable = target.callable if is_exectarget else target
         parameter_compile_result = {}
 
+        dii = self.dispatcher_interface
         track_logs: TrackLog = TrackLog()
-        async with self.dispatcher_interface.start_execution(
+        self.dispatcher_interface.start_execution(
             [
                 *(dispatchers or []),
                 *(target.namespace.injected_dispatchers if is_listener else []),
                 *(target.inline_dispatchers if is_exectarget else []),
             ],
             track_logs,
-        ) as dii:
-            try:
-                await dii.exec_lifecycle("beforeExecution")
-                if is_exectarget:
-                    if target.maybe_failure:
-                        initial_path = dii.init_dispatch_path()
-                        for name, annotation, default in argument_signature(
-                            target_callable
-                        ):
-                            if (
-                                target.param_paths.setdefault(name, initial_path)
-                                is initial_path
-                            ):
-                                target.param_paths[name + "$set"] = set()
-                            parameter_compile_result[name] = await dii.lookup_param(
-                                name, annotation, default, target.param_paths[name]
-                            )
-                    else:
-                        for name, annotation, default in argument_signature(
-                            target_callable
-                        ):
-                            parameter_compile_result[
-                                name
-                            ] = await dii.lookup_param_without_log(
-                                name, annotation, default, target.param_paths[name]
-                            )
-
-                    for hl_d in target.decorators:
-                        await dii.lookup_by_directly(
-                            self.decorator_interface,
-                            "_bcc_headless_decorators",
-                            None,
-                            hl_d,
+        )
+        try:
+            await dii.exec_lifecycle("beforeExecution")
+            if is_exectarget:
+                if target.maybe_failure:
+                    initial_path = dii.init_dispatch_path()
+                    for name, annotation, default in argument_signature(
+                        target_callable
+                    ):
+                        target.param_paths.setdefault(name, initial_path)
+                        parameter_compile_result[name] = await dii.lookup_param(
+                            name, annotation, default, target.param_paths[name]
                         )
-
                 else:
                     for name, annotation, default in argument_signature(
                         target_callable
@@ -183,59 +150,59 @@ class Broadcast:
                         ] = await dii.lookup_param_without_log(
                             name, annotation, default, target.param_paths[name]
                         )
+                for hl_d in target.decorators:
+                    await dii.lookup_by_directly(
+                        self.decorator_interface,
+                        "_bcc_headless_decorators",
+                        None,
+                        hl_d,
+                    )
+            else:
+                for name, annotation, default in argument_signature(target_callable):
+                    parameter_compile_result[name] = await dii.lookup_param_without_log(
+                        name, annotation, default, target.param_paths[name]
+                    )
+            await dii.exec_lifecycle("afterDispatch", None, None)
+            result = await run_always_await_safely(
+                target_callable, **parameter_compile_result
+            )
+        except (ExecutionStop, PropagationCancelled):
+            raise
+        except RequirementCrashed:
+            traceback.print_exc()
+            raise
+        except Exception as e:
+            if event is not None and event.__class__ is not ExceptionThrowed:
+                if print_exception:
+                    traceback.print_exc()
+                elif post_exception_event:
+                    self.postEvent(ExceptionThrowed(exception=e, event=event))
+            raise
+        finally:
+            _, exception, tb = sys.exc_info()
+            await dii.exec_lifecycle("afterExecution", exception, tb)
+            dii.clean()
+            if is_exectarget and not track_logs.fluent_success:
+                paths = target.param_paths
+                current_path: Optional[List["T_Dispatcher"]] = None
+                has_failures = set()
+                for log_type, *log in track_logs.log:
+                    if log_type is TrackLogType.LookupStart:
+                        current_path = paths[log[0]]
+                    elif log_type is TrackLogType.Continue:
+                        has_failures.add(log[0])
+                    elif log_type is TrackLogType.Result:
+                        current_path[0].append(log[1])
+                    elif log_type is TrackLogType.LookupEnd:
+                        current_path[0] = list(dict.fromkeys(current_path[0]))
+                target.maybe_failure.symmetric_difference_update(has_failures)
 
-                await dii.exec_lifecycle("afterDispatch", None, None)
-                result = await run_always_await_safely(
-                    target_callable, **parameter_compile_result
-                )
-
-            except (ExecutionStop, PropagationCancelled):
-                raise
-            except RequirementCrashed:
-                traceback.print_exc()
-                raise
-            except Exception as e:
-                if event is not None:
-                    if print_exception or event.__class__ is ExceptionThrowed:
-                        traceback.print_exc()
-                    if post_exception_event and event.__class__ is not ExceptionThrowed:
-                        self.postEvent(ExceptionThrowed(exception=e, event=event))
-                raise
-            finally:
-                _, exception, tb = sys.exc_info()
-                await dii.exec_lifecycle("afterExecution", exception, tb)
-
-                if is_exectarget and not track_logs.fluent_success:
-                    current_paths = target.param_paths
-                    current_path: Optional[List[List["T_Dispatcher"]]] = None
-                    current_path_set: Optional[Set["T_Dispatcher"]] = None
-                    has_failures: set = set()
-
-                    for log in track_logs.log:
-                        if log[0] is TrackLogType.LookupStart:
-                            current_path = current_paths[log[1]]
-                            current_path_set = current_paths[log[1] + "$set"]
-                        elif log[0] is TrackLogType.LookupEnd:
-                            current_path = None
-                        elif (
-                            current_path is not None
-                            and log[0] is TrackLogType.Result
-                            and log[2] not in current_path_set
-                        ):
-                            current_path[0].append(log[2])
-                            current_path_set.add(log[2])
-                        elif log[0] is TrackLogType.Continue:
-                            has_failures.add(log[1])
-
-                    target.maybe_failure.symmetric_difference_update(has_failures)
-
-            if result.__class__ is Force:
-                return result.content
-            elif result.__class__ is RemoveMe:
-                if is_listener and target in self.listeners:
-                    self.listeners.remove(target)
-
-            return result
+        if result.__class__ is Force:
+            return result.content
+        elif result.__class__ is RemoveMe:
+            if is_listener and target in self.listeners:
+                self.listeners.remove(target)
+        return result
 
     def postEvent(self, event: Dispatchable):
         self.loop.create_task(

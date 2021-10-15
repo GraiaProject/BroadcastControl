@@ -69,7 +69,7 @@ for _ in range(count):
     #    loop.create_task(broadcast.Executor(listener, event)))
     tasks.append(broadcast.Executor(listener, dispatchers=mixins))
 
-import yappi
+#import yappi
 
 s = time.time()
 

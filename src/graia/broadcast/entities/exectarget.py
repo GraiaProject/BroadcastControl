@@ -10,7 +10,7 @@ class ExecTarget:
     inline_dispatchers: List[T_Dispatcher]
     decorators: List[Decorator]
 
-    param_paths: Dict[str, Union[List[List[T_Dispatcher]], Set[T_Dispatcher]]]
+    param_paths: Dict[str, List[List[T_Dispatcher]]]
     maybe_failure: Set[str]
 
     def __init__(

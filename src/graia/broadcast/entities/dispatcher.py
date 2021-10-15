@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import TYPE_CHECKING, List, Optional, Type
+from typing import TYPE_CHECKING, List, Optional, Type, Union
 
 if TYPE_CHECKING:
     from ..interfaces.dispatcher import DispatcherInterface
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class BaseDispatcher(metaclass=ABCMeta):
     """所有非单函数型 Dispatcher 的基类, 用于为参数解析提供可扩展的支持."""
 
-    mixin: List["BaseDispatcher", Type["BaseDispatcher"]]
+    mixin: List[Union["BaseDispatcher", Type["BaseDispatcher"]]]
     """声明该 Dispatcher 所包含的来自其他 Dispatcher 提供的参数解析支持,
     若某参数该 Dispatcher 无法解析, 将跳转到该列表中并交由其中的 Dispatcher 进行解析,
     该列表中的 Dispatcher 全部被调用过且都不返回一有效值时才会将解析权交由其他的 Dispatcher.

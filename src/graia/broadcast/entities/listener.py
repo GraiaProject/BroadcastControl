@@ -1,10 +1,10 @@
 from typing import Callable, List, Type
 
+from ..typing import T_Dispatcher
 from .decorator import Decorator
 from .event import Dispatchable
 from .exectarget import ExecTarget
 from .namespace import Namespace
-from ..typing import T_Dispatcher
 
 
 class Listener(ExecTarget):

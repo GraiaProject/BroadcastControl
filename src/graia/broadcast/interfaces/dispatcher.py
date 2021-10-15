@@ -8,11 +8,8 @@ from ..entities.event import Dispatchable
 from ..entities.signatures import Force
 from ..entities.track_log import TrackLog, TrackLogType
 from ..exceptions import RequirementCrashed
-from ..typing import (
-    DEFAULT_LIFECYCLE_NAMES,
-    T_Dispatcher,
-    T_Dispatcher_Callable,
-)
+from ..typing import (DEFAULT_LIFECYCLE_NAMES, T_Dispatcher,
+                      T_Dispatcher_Callable)
 from ..utilles import run_always_await_safely
 
 if TYPE_CHECKING:
@@ -156,20 +153,15 @@ class DispatcherInterface(Generic[T_Event]):
         ]
         self.track_logs = [TrackLog()]
 
-    async def __aenter__(self) -> "DispatcherInterface":
-        return self
-
-    async def __aexit__(self, _, exc: Exception, tb):
+    def clean(self):
         self.execution_contexts.pop()
         self.track_logs.pop()
-        if tb is not None:
-            raise exc.with_traceback(tb)
 
     def start_execution(
         self,
         dispatchers: List[T_Dispatcher],
         track_log_receiver: TrackLog,
-    ) -> "DispatcherInterface":
+    ):
         self.execution_contexts.append(ExecutionContext(dispatchers))
         self.track_logs.append(track_log_receiver)
         self.flush_lifecycle_refs(self.dispatcher_pure_generator())
@@ -178,14 +170,7 @@ class DispatcherInterface(Generic[T_Event]):
     @staticmethod
     @lru_cache(maxsize=None)
     def dispatcher_callable_detector(dispatcher: T_Dispatcher) -> T_Dispatcher_Callable:
-        # 没人有兴趣玩魔法吧..
-        # 这里之前判定了下 dispatcher is class......是 staticmethod 检查啊.
-        if hasattr(dispatcher, "catch"):
-            return dispatcher.catch  # type: ignore
-        elif callable(dispatcher):
-            return dispatcher
-        else:
-            raise ValueError("invaild dispatcher: ", dispatcher)
+        return getattr(dispatcher, "catch", dispatcher)  # type: ignore
 
     def init_dispatch_path(self) -> List[List[T_Dispatcher]]:
         return [
@@ -216,7 +201,7 @@ class DispatcherInterface(Generic[T_Event]):
                     continue
 
                 if result.__class__ is Force:
-                    result = result.target
+                    return result.target
 
                 return result
             else:
@@ -254,7 +239,7 @@ class DispatcherInterface(Generic[T_Event]):
                     continue
 
                 if result.__class__ is Force:
-                    result = result.target
+                    return result.target
 
                 track_log.append((TrackLogType.Result, name, dispatcher))
                 return result
@@ -277,7 +262,7 @@ class DispatcherInterface(Generic[T_Event]):
                 continue
 
             if result.__class__ is Force:
-                result = result.target
+                return result.target
 
             return result
         else:

@@ -2,7 +2,8 @@ import inspect
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from functools import lru_cache
-from typing import Any, Awaitable, Callable, Generic, Iterable, Type, TypeVar, Union
+from typing import (Any, Awaitable, Callable, Generic, Iterable, Type, TypeVar,
+                    Union)
 
 from .entities.dispatcher import BaseDispatcher
 
@@ -68,10 +69,12 @@ def argument_signature(callable_target: Callable):
     return [
         (
             name,
-            param.annotation if param.annotation != inspect.Signature.empty else None,
-            param.default if param.default != inspect.Signature.empty else None,
+            param.annotation
+            if param.annotation is not inspect.Signature.empty
+            else None,
+            param.default if param.default is not inspect.Signature.empty else None,
         )
-        for name, param in dict(inspect.signature(callable_target).parameters).items()
+        for name, param in inspect.signature(callable_target).parameters.items()
     ]
 
 
