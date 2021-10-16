@@ -5,7 +5,7 @@ import asyncio
 import functools
 import random
 import time
-from typing import Any, Generator, Literal, Tuple, Union
+from typing import Any, Generator, Tuple, Union
 
 from graia.broadcast import Broadcast
 from graia.broadcast.builtin.decorators import Depend

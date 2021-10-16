@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Literal, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Tuple, Union
+from typing_extensions import Literal
 
 if TYPE_CHECKING:
     from ..typing import T_Dispatcher
