@@ -10,11 +10,7 @@ from ..entities.event import Dispatchable
 from ..entities.signatures import Force
 from ..entities.track_log import TrackLog, TrackLogType
 from ..exceptions import RequirementCrashed
-<<<<<<< HEAD
-from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher
-=======
 from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher, T_Dispatcher_Callable
->>>>>>> 96d22dae550554c5acaff687150adb571e603fba
 from ..utilles import run_always_await_safely
 
 if TYPE_CHECKING:
