@@ -49,12 +49,10 @@ broadcast = Broadcast(
 
 @broadcast.receiver(TestEvent)
 async def r(r: str, d: str, c: str):
-    # loop.call_later(1, lambda: broadcast.postEvent(TestEvent()))
-    # print(await inc.wait(waiter))
     pass
 
 
-count = 100000
+count = 40000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -69,19 +67,19 @@ for _ in range(count):
     #    loop.create_task(broadcast.Executor(listener, event)))
     tasks.append(broadcast.Executor(listener, dispatchers=mixins))
 
-#import yappi
 
 s = time.time()
 
-"""
-yappi.set_clock_type("WALL")
-with yappi.run():
-    loop.run_until_complete(asyncio.gather(*tasks))
-yappi.get_func_stats().print_all(
-    columns={ 0: ("name", 60),1: ("ncall", 8),2: ("tsub", 10),3: ("ttot", 10),4: ("tavg", 10) }
-)
-"""
+from pyinstrument import Profiler
+
+profiler = Profiler()
+profiler.start()
+
 loop.run_until_complete(asyncio.gather(*tasks))
+
+profiler.stop()
+
+profiler.open_in_browser()
 
 
 """

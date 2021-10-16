@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, TypeVar
+from typing import Any, Callable, Dict, Generator, List, TypeVar
 
 from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher
 
@@ -16,9 +16,9 @@ class DII_NestableIterable:
 
     def __init__(self, iterable: List) -> None:
         self.iterable = iterable
-        self.indexes = [[0, 0]]
+        self.indexes = [(0, 0)]
 
-    def __iter__(self) -> T_Dispatcher:
+    def __iter__(self) -> Generator[None, T_Dispatcher, None]:
         dis_set_index, dis_index = self.indexes[-1]
         dis_set_index_offset = dis_set_index + (dis_set_index and 1)
         dis_index_offset = dis_index + (dis_index and 1)
@@ -41,31 +41,27 @@ class ExecutionContext:
     lifecycle_refs: Dict[str, List[Callable]]
     dispatchers: List[T_Dispatcher]
 
-    def __init__(self, dispatchers: List[T_Dispatcher]) -> None:
+    def __init__(self, dispatchers: List[T_Dispatcher]):
         self.dispatchers = dispatchers
 
-        self.lifecycle_refs = {i: [] for i in DEFAULT_LIFECYCLE_NAMES}
+        self.lifecycle_refs = LF_TEMPLATE.copy()
 
 
 class ParameterContext:
-    __slots__ = ("name", "annotation", "default", "dispatchers", "path")
+    __slots__ = ("name", "annotation", "default", "path")
 
     name: str
     annotation: Any
     default: Any
+    path: DII_NestableIterable
 
-    dispatchers: List[T_Dispatcher]
-
-    def __init__(self, name, annotation, default, dispatchers, using_path) -> None:
+    def __init__(self, name, annotation, default, using_path):
         self.name = name
         self.annotation = annotation
         self.default = default
-        self.dispatchers = dispatchers
         self.path = DII_NestableIterable(using_path)
 
     def __repr__(self) -> str:
-        return (
-            "<ParameterContext name={0} annotation={1} default={2} locald={3}".format(
-                self.name, self.annotation, self.default, self.dispatchers
-            )
+        return "<ParameterContext name={0} annotation={1} default={2}".format(
+            self.name, self.annotation, self.default
         )

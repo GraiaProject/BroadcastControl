@@ -1,7 +1,7 @@
 # Broadcast Control for Graia Framework
 
 ## 这是什么？
-一个高可扩展性，设计简洁，基于 `asyncio` 的事件系统，为 `Graia Framework` 设计。
+一个高性能, 高可扩展性，设计简洁，基于 `asyncio` 的事件系统，为 `Graia Framework` 设计。
 
 ## 安装
 ### 从 PyPI 安装

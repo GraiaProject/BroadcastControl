@@ -3,19 +3,19 @@ from typing import TYPE_CHECKING, Any, Dict
 from ..entities.decorator import Decorator
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.signatures import Force
-from ..utilles import run_always_await_safely
+from ..utilles import Ctx, run_always_await_safely
 
 if TYPE_CHECKING:
     from ..interfaces.dispatcher import DispatcherInterface
 
 
+ctx_dei_returnvalue = Ctx("ctx_dei_returnvalue")
+
+
 class DecoratorInterface(BaseDispatcher):
-    """Graia Broadcast Control 内部机制 Decorate 的具体管理实现"""
+    """Broadcast Control 内部机制 Decorator 的具体管理实现"""
 
     dispatcher_interface: "DispatcherInterface"
-    local_storage: Dict[Any, Any] = {}
-    return_value: Any = None
-    default = None
 
     def __init__(self, dispatcher_interface: "DispatcherInterface"):
         self.dispatcher_interface = dispatcher_interface
@@ -32,16 +32,16 @@ class DecoratorInterface(BaseDispatcher):
     def event(self):
         return self.dispatcher_interface.event
 
+    @property
+    def return_value(self):
+        return ctx_dei_returnvalue.get()
+
     async def catch(self, interface: "DispatcherInterface"):
         if isinstance(interface.default, Decorator):
             decorator: Decorator = interface.default
-            if not decorator.pre:
-                # 作为 装饰
-                self.return_value = await interface.lookup_param(
-                    interface.name, interface.annotation, None
-                )
-            try:
+            with ctx_dei_returnvalue.use(
+                await interface.lookup_param(interface.name, interface.annotation, None)
+                if not decorator.pre
+                else None
+            ):
                 return Force(await run_always_await_safely(decorator.target, self))
-            finally:
-                if not decorator.pre:
-                    self.return_value = None

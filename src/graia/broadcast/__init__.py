@@ -108,7 +108,6 @@ class Broadcast:
             is_exectarget = is_listener = True
         elif isinstance(target, ExecTarget):
             is_exectarget = True
-        event: Optional[Dispatchable] = self.event_ctx.get()
 
         if is_listener:
             if target.namespace.disabled:
@@ -120,20 +119,20 @@ class Broadcast:
         parameter_compile_result = {}
 
         dii = self.dispatcher_interface
-        track_logs: TrackLog = TrackLog()
-        self.dispatcher_interface.start_execution(
-            [
-                *(dispatchers or []),
-                *(target.namespace.injected_dispatchers if is_listener else []),
-                *(target.inline_dispatchers if is_exectarget else []),
-            ],
-            track_logs,
-        )
+        track_logs = TrackLog()
+
+        dispatchers = dispatchers or []
+        if is_exectarget:
+            dispatchers.extend(target.inline_dispatchers)
+            if is_listener:
+                dispatchers.extend(target.namespace.injected_dispatchers)
+
+        dii.start_execution(dispatchers, track_logs)
         try:
             await dii.exec_lifecycle("beforeExecution")
             if is_exectarget:
                 if target.maybe_failure:
-                    initial_path = dii.init_dispatch_path()
+                    initial_path = dii.dispatcher_pure_generator()
                     for name, annotation, default in argument_signature(
                         target_callable
                     ):
@@ -150,6 +149,7 @@ class Broadcast:
                         ] = await dii.lookup_param_without_log(
                             name, annotation, default, target.param_paths[name]
                         )
+
                 for hl_d in target.decorators:
                     await dii.lookup_by_directly(
                         self.decorator_interface,
@@ -157,6 +157,7 @@ class Broadcast:
                         None,
                         hl_d,
                     )
+
             else:
                 for name, annotation, default in argument_signature(target_callable):
                     parameter_compile_result[name] = await dii.lookup_param_without_log(
@@ -172,6 +173,7 @@ class Broadcast:
             traceback.print_exc()
             raise
         except Exception as e:
+            event: Optional[Dispatchable] = self.event_ctx.get()
             if event is not None and event.__class__ is not ExceptionThrowed:
                 if print_exception:
                     traceback.print_exc()
@@ -181,8 +183,10 @@ class Broadcast:
         finally:
             _, exception, tb = sys.exc_info()
             await dii.exec_lifecycle("afterExecution", exception, tb)
+
             dii.clean()
-            if is_exectarget and not track_logs.fluent_success:
+
+            if not exception and is_exectarget and not track_logs.fluent_success:
                 paths = target.param_paths
                 current_path: Optional[List["T_Dispatcher"]] = None
                 has_failures = set()
@@ -195,11 +199,12 @@ class Broadcast:
                         current_path[0].append(log[1])
                     elif log_type is TrackLogType.LookupEnd:
                         current_path[0] = list(dict.fromkeys(current_path[0]))
+
                 target.maybe_failure.symmetric_difference_update(has_failures)
 
         if result.__class__ is Force:
             return result.content
-        elif result.__class__ is RemoveMe:
+        elif result is RemoveMe:
             if is_listener and target in self.listeners:
                 self.listeners.remove(target)
         return result

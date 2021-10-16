@@ -78,7 +78,7 @@ class InterruptControl:
             if result is not None:
                 future.set_result(result)
                 if not waiter.block_propagation:
-                    return RemoveMe()
+                    return RemoveMe
                 raise PropagationCancelled()
 
         return inside_listener
