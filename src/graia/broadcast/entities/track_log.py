@@ -1,6 +1,6 @@
+import sys
 from enum import Enum
 from typing import TYPE_CHECKING, Any, List, Tuple, Union
-from typing_extensions import Literal
 
 if TYPE_CHECKING:
     from ..typing import T_Dispatcher
@@ -16,9 +16,10 @@ class TrackLogType(Enum):
     RequirementCrashed = 4
 
 
-import sys
 
 if sys.version_info >= (3, 8):
+    from typing import Literal
+
     T_TrackLogItem = Union[
         Tuple[Literal[TrackLogType.LookupStart], str, Any, Any],
         Tuple[Literal[TrackLogType.Continue], str, Any],
