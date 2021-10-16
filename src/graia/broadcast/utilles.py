@@ -2,8 +2,7 @@ import inspect
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from functools import lru_cache
-from typing import (Any, Awaitable, Callable, Generic, Iterable, Type, TypeVar,
-                    Union)
+from typing import Any, Awaitable, Callable, Generic, Iterable, Type, TypeVar, Union
 
 from .entities.dispatcher import BaseDispatcher
 

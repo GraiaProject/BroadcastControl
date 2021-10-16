@@ -1,20 +1,20 @@
+from enum import IntEnum
 from types import TracebackType
 from typing import (
     Any,
     AsyncGenerator,
     Callable,
     Generator,
+    Literal,
     NamedTuple,
     Optional,
     Tuple,
     TypeVar,
-    Literal,
     Union,
 )
+
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
-from enum import IntEnum
-
 from graia.broadcast.utilles import printer
 
 

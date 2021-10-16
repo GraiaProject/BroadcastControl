@@ -1,23 +1,23 @@
-from typing import Any, Generator, Literal, Tuple, Union
-from graia.broadcast.entities.event import Dispatchable
-from graia.broadcast.entities.dispatcher import BaseDispatcher
-from graia.broadcast.interfaces.dispatcher import DispatcherInterface
-from graia.broadcast.entities.listener import Listener
-from graia.broadcast import Broadcast
-from graia.broadcast.entities.decorator import Decorator
-from graia.broadcast.builtin.decorators import Depend
-from graia.broadcast.interfaces.decorator import DecoratorInterface
-from graia.broadcast.exceptions import ExecutionStop, PropagationCancelled
-from graia.broadcast.interrupt import InterruptControl
-from graia.broadcast.interrupt.waiter import Waiter
-import random
 import asyncio
-import time
 
 # import objgraph
 # import copy
 import functools
+import random
+import time
+from typing import Any, Generator, Literal, Tuple, Union
 
+from graia.broadcast import Broadcast
+from graia.broadcast.builtin.decorators import Depend
+from graia.broadcast.entities.decorator import Decorator
+from graia.broadcast.entities.dispatcher import BaseDispatcher
+from graia.broadcast.entities.event import Dispatchable
+from graia.broadcast.entities.listener import Listener
+from graia.broadcast.exceptions import ExecutionStop, PropagationCancelled
+from graia.broadcast.interfaces.decorator import DecoratorInterface
+from graia.broadcast.interfaces.dispatcher import DispatcherInterface
+from graia.broadcast.interrupt import InterruptControl
+from graia.broadcast.interrupt.waiter import Waiter
 from graia.broadcast.utilles import dispatcher_mixin_handler
 
 
@@ -67,6 +67,10 @@ for _ in range(count):
     #    loop.create_task(broadcast.Executor(listener, event)))
     tasks.append(broadcast.Executor(listener, dispatchers=mixins))
 
+<<<<<<< HEAD
+=======
+# import yappi
+>>>>>>> 96d22dae550554c5acaff687150adb571e603fba
 
 s = time.time()
 
