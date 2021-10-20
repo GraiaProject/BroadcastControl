@@ -21,6 +21,9 @@ isort = "^5.9.3"
 yappi = "^1.3.2"
 pyinstrument = "^4.0.4"
 
+[tool.isort]
+profile = "black"
+
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
