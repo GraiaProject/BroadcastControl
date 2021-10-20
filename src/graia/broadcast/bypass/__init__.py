@@ -1,11 +1,12 @@
 import asyncio
+from typing import Iterable
+
+from .. import Broadcast
+from ..entities.listener import Listener
 from ..entities.namespace import Namespace
-from ..utilles import Ctx
 from ..interfaces.decorator import DecoratorInterface
 from ..interfaces.dispatcher import DispatcherInterface
-from typing import Iterable
-from ..entities.listener import Listener
-from .. import Broadcast
+from ..utilles import Ctx
 
 
 class BypassBroadcast(Broadcast):
@@ -13,6 +14,7 @@ class BypassBroadcast(Broadcast):
     An broadcast that supports event bypassing.
     **may be unstable**
     """
+
     def __init__(
         self,
         *,
