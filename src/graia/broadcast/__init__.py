@@ -49,11 +49,14 @@ class Broadcast:
 
     debug_flag: bool
 
+    bypass: bool
+
     def __init__(
         self,
         *,
         loop: asyncio.AbstractEventLoop = None,
         debug_flag: bool = False,
+        bypass: bool = False
     ):
         self.loop = loop or asyncio.get_event_loop()
         self.default_namespace = Namespace(name="default", default=True)
@@ -66,6 +69,7 @@ class Broadcast:
         self.dispatcher_interface.execution_contexts[0].dispatchers.insert(
             0, self.decorator_interface
         )
+        self.bypass = bypass
 
         @self.dispatcher_interface.inject_global_raw
         async def _(interface: DispatcherInterface):
@@ -334,7 +338,7 @@ class Broadcast:
                         namespace=namespace or self.getDefaultNamespace(),
                         inline_dispatchers=dispatchers,
                         priority=priority,
-                        listening_events=[event],
+                        listening_events=(list(self.event_class_generator(event)) if self.bypass else [event]),
                         decorators=decorators,
                     )
                 )
