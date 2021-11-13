@@ -1,17 +1,15 @@
 import asyncio
 import sys
 import traceback
-from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
+from typing import Callable, Dict, Iterable, List, Optional, Type, Union
 
 from .builtin.event import ExceptionThrowed
 from .entities.decorator import Decorator
-from .entities.dispatcher import BaseDispatcher
 from .entities.event import Dispatchable
 from .entities.exectarget import ExecTarget
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .entities.track_log import TrackLog, TrackLogType
 from .exceptions import (
     DisabledNamespace,
     ExecutionStop,
@@ -30,7 +28,6 @@ from .utilles import (
     argument_signature,
     dispatcher_mixin_handler,
     group_dict,
-    printer,
     run_always_await_safely,
 )
 
@@ -49,6 +46,8 @@ class Broadcast:
 
     debug_flag: bool
 
+    global_dispatchers: List["T_Dispatcher"]
+
     def __init__(
         self,
         *,
@@ -63,9 +62,7 @@ class Broadcast:
         self.event_ctx = Ctx("bcc_event_ctx")
         self.dispatcher_interface = DispatcherInterface(self)
         self.decorator_interface = DecoratorInterface(self.dispatcher_interface)
-        self.dispatcher_interface.execution_contexts[0].dispatchers.insert(
-            0, self.decorator_interface
-        )
+        self.global_dispatchers = [self.decorator_interface]
 
         @self.dispatcher_interface.inject_global_raw
         async def _(interface: DispatcherInterface):
@@ -114,6 +111,7 @@ class Broadcast:
         dispatchers: List[T_Dispatcher] = None,
         post_exception_event: bool = True,
         print_exception: bool = True,
+        use_global_dispatchers: bool = True,
     ):
         is_exectarget = is_listener = False
         if isinstance(target, Listener):
@@ -131,7 +129,6 @@ class Broadcast:
         parameter_compile_result = {}
 
         dii = self.dispatcher_interface
-        track_logs = TrackLog()
 
         dispatchers = dispatchers or []
         if is_exectarget:
@@ -139,28 +136,18 @@ class Broadcast:
             if is_listener:
                 dispatchers.extend(target.namespace.injected_dispatchers)
 
-        dii.start_execution(dispatchers, track_logs)
+        if use_global_dispatchers:
+            dispatchers.extend(self.global_dispatchers)
+
+        dii.start_execution(dispatchers)
         try:
             await dii.exec_lifecycle("beforeExecution")
             if is_exectarget:
-                if target.maybe_failure:
-                    initial_path = dii.dispatcher_pure_generator()
-                    for name, annotation, default in argument_signature(
-                        target_callable
-                    ):
-                        target.param_paths.setdefault(name, initial_path)
-                        parameter_compile_result[name] = await dii.lookup_param(
-                            name, annotation, default, target.param_paths[name]
-                        )
-                else:
-                    for name, annotation, default in argument_signature(
-                        target_callable
-                    ):
-                        parameter_compile_result[
-                            name
-                        ] = await dii.lookup_param_without_log(
-                            name, annotation, default, target.param_paths[name]
-                        )
+                for name, annotation, default in argument_signature(target_callable):
+                    oplog = [target.param_paths.setdefault(name, []), 0]
+                    parameter_compile_result[name] = await dii.lookup_param(
+                        name, annotation, default, oplog
+                    )
 
                 for hl_d in target.decorators:
                     await dii.lookup_by_directly(
@@ -172,9 +159,10 @@ class Broadcast:
 
             else:
                 for name, annotation, default in argument_signature(target_callable):
-                    parameter_compile_result[name] = await dii.lookup_param_without_log(
-                        name, annotation, default, target.param_paths[name]
+                    parameter_compile_result[name] = await dii.lookup_param(
+                        name, annotation, default, [[], 0]
                     )
+
             await dii.exec_lifecycle("afterDispatch", None, None)
             result = await run_always_await_safely(
                 target_callable, **parameter_compile_result
@@ -195,24 +183,7 @@ class Broadcast:
         finally:
             _, exception, tb = sys.exc_info()
             await dii.exec_lifecycle("afterExecution", exception, tb)
-
             dii.clean()
-
-            if not exception and is_exectarget and not track_logs.fluent_success:
-                paths = target.param_paths
-                current_path: Optional[List["T_Dispatcher"]] = None
-                has_failures = set()
-                for log_type, *log in track_logs.log:
-                    if log_type is TrackLogType.LookupStart:
-                        current_path = paths[log[0]]
-                    elif log_type is TrackLogType.Continue:
-                        has_failures.add(log[0])
-                    elif log_type is TrackLogType.Result:
-                        current_path[0].append(log[1])
-                    elif log_type is TrackLogType.LookupEnd:
-                        current_path[0] = list(dict.fromkeys(current_path[0]))
-
-                target.maybe_failure.symmetric_difference_update(has_failures)
 
         if result.__class__ is Force:
             return result.content

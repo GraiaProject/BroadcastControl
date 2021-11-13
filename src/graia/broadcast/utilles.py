@@ -2,7 +2,17 @@ import inspect
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from functools import lru_cache
-from typing import Any, Awaitable, Callable, Generic, Iterable, Type, TypeVar, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Generic,
+    Iterable,
+    List,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from .entities.dispatcher import BaseDispatcher
 
@@ -105,5 +115,24 @@ def dispatcher_mixin_handler(dispatcher: Union[Type[BaseDispatcher], BaseDispatc
     return result
 
 
-# NestableIterable impl migrated to:
-# > https://gist.github.com/GreyElaina/f9a5f998ec1c3fc7bddb811ce046d0ca
+class NestableIterable(Iterable[T]):
+    index_stack: list
+    iterable: List[T]
+
+    def __init__(self, iterable: List[T]) -> None:
+        self.iterable = iterable
+        self.index_stack = [0]
+
+    def __iter__(self):
+        index = self.index_stack[-1]
+        self.index_stack.append(self.index_stack[-1])
+
+        start_offset = index + index and 1
+        try:
+            for self.index_stack[-1], content in enumerate(
+                self.iterable[start_offset:],
+                start=start_offset,
+            ):
+                yield content
+        finally:
+            self.index_stack.pop()

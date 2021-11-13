@@ -16,6 +16,7 @@ class DecoratorInterface(BaseDispatcher):
     """Broadcast Control 内部机制 Decorator 的具体管理实现"""
 
     dispatcher_interface: "DispatcherInterface"
+    local_storage: Dict[Any, Any]
 
     def __init__(self, dispatcher_interface: "DispatcherInterface"):
         self.dispatcher_interface = dispatcher_interface
@@ -36,11 +37,19 @@ class DecoratorInterface(BaseDispatcher):
     def return_value(self):
         return ctx_dei_returnvalue.get()
 
+    async def beforeExecution(self, interface: "DispatcherInterface"):
+        self.local_storage = {}
+
+    async def afterExecution(self, interface: "DispatcherInterface"):
+        del self.local_storage
+
     async def catch(self, interface: "DispatcherInterface"):
         if isinstance(interface.default, Decorator):
             decorator: Decorator = interface.default
             with ctx_dei_returnvalue.use(
-                await interface.lookup_param(interface.name, interface.annotation, None)
+                await interface.lookup_param(
+                    interface.name, interface.annotation, None, [[], 0]
+                )
                 if not decorator.pre
                 else None
             ):

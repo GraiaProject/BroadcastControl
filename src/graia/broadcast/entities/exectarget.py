@@ -10,8 +10,7 @@ class ExecTarget:
     inline_dispatchers: List[T_Dispatcher]
     decorators: List[Decorator]
 
-    param_paths: Dict[str, List[List[T_Dispatcher]]]
-    maybe_failure: Set[str]
+    param_paths: Dict[str, List[T_Dispatcher]]
 
     def __init__(
         self,
@@ -24,4 +23,3 @@ class ExecTarget:
         self.decorators = decorators or []
 
         self.param_paths = {}
-        self.maybe_failure = set(inspect.signature(self.callable).parameters.keys())

@@ -67,37 +67,21 @@ for _ in range(count):
     #    loop.create_task(broadcast.Executor(listener, event)))
     tasks.append(broadcast.Executor(listener, dispatchers=mixins))
 
-<<<<<<< HEAD
-=======
-# import yappi
->>>>>>> 96d22dae550554c5acaff687150adb571e603fba
 
 s = time.time()
 
-from pyinstrument import Profiler
-
-profiler = Profiler()
-profiler.start()
-
+"""
 loop.run_until_complete(asyncio.gather(*tasks))
-
-profiler.stop()
-
-profiler.open_in_browser()
-
-
 """
 try:
-    #cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))", "perf.prof")
+    #cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
     loop.run_until_complete(asyncio.gather(*tasks))
     # loop.run_until_complete(asyncio.gather(*[r(1, 2, 3, 4) for _ in range(count)]))
 except:
     pass
-"""
+
 # loop.run_until_complete(asyncio.sleep(0.1))
 e = time.time()
 n = e - s
 print(f"used {n}, {count/n}o/s")
 # print(tasks)
-print(listener.maybe_failure)
-print(listener.param_paths)

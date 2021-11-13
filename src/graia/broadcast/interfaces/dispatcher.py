@@ -1,21 +1,14 @@
 from functools import lru_cache
 from inspect import getattr_static
-from itertools import chain
-from types import MethodType
 from typing import TYPE_CHECKING, Any, Dict, Generic, Iterable, List, TypeVar
 
 from ..entities.context import ExecutionContext, ParameterContext
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import Dispatchable
 from ..entities.signatures import Force
-from ..entities.track_log import TrackLog, TrackLogType
 from ..exceptions import RequirementCrashed
-<<<<<<< HEAD
 from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher
-=======
-from ..typing import DEFAULT_LIFECYCLE_NAMES, T_Dispatcher, T_Dispatcher_Callable
->>>>>>> 96d22dae550554c5acaff687150adb571e603fba
-from ..utilles import run_always_await_safely
+from ..utilles import NestableIterable, run_always_await_safely
 
 if TYPE_CHECKING:
     from .. import Broadcast
@@ -42,15 +35,10 @@ def get_lifecycle_refs(dispatcher: T_Dispatcher) -> Dict:
     result = {}
 
     for name in DEFAULT_LIFECYCLE_NAMES:
-        v = getattr(dispatcher, name, None)
-        if not v:
-            continue
-        d = getattr_static(dispatcher, name, None)
-        if (
-            isinstance(d, (staticmethod, MethodType))
-            and d.__func__ not in LIFECYCLE_ABS
-        ):
-            result[name] = v
+        d = getattr_static(dispatcher, name)
+        h = getattr(d, "__func__", None)
+        if h is not None and h not in LIFECYCLE_ABS:
+            result[name] = getattr(dispatcher, name)
     return result
 
 
@@ -60,13 +48,10 @@ class DispatcherInterface(Generic[T_Event]):
     execution_contexts: List[ExecutionContext]
     parameter_contexts: List[ParameterContext]
 
-    track_logs: List[TrackLog]
-
     def __init__(self, broadcast_instance: "Broadcast") -> None:
         self.broadcast = broadcast_instance
-        self.execution_contexts = [ExecutionContext([])]
-        self.parameter_contexts = [ParameterContext(None, None, None, [[]])]
-        self.track_logs = [TrackLog()]
+        self.execution_contexts = []
+        self.parameter_contexts = []
 
     @property
     def name(self) -> str:
@@ -85,36 +70,23 @@ class DispatcherInterface(Generic[T_Event]):
         return self.broadcast.event_ctx.get()  # type: ignore
 
     @property
-    def track_log(self) -> TrackLog:
-        return self.track_logs[-1]
-
-    @property
     def global_dispatcher(self) -> List[T_Dispatcher]:
-        return self.execution_contexts[0].dispatchers
-
-    @property
-    def current_path(self):
-        return self.parameter_contexts[-1].path
+        return self.broadcast.global_dispatchers
 
     def start_execution(
         self,
         dispatchers: List[T_Dispatcher],
-        track_log_receiver: TrackLog,
     ):
-        self.execution_contexts.append(ExecutionContext(dispatchers))
-        self.track_logs.append(track_log_receiver)
-        self.flush_lifecycle_refs(chain(*self.dispatcher_pure_generator()))
+        self.execution_contexts.append(
+            ExecutionContext(
+                dispatchers, NestableIterable(self.execution_contexts[-1].dispatchers)
+            )
+        )
+        self.flush_lifecycle_refs(self.execution_contexts[-1].dispatchers)
         return self
 
     def clean(self):
         self.execution_contexts.pop()
-        self.track_logs.pop()
-
-    def dispatcher_pure_generator(self) -> List[List[T_Dispatcher]]:
-        return [
-            self.execution_contexts[0].dispatchers,
-            self.execution_contexts[-1].dispatchers,
-        ]
 
     def inject_execution_raw(self, *dispatchers: T_Dispatcher):
         for dispatcher in dispatchers:
@@ -124,9 +96,7 @@ class DispatcherInterface(Generic[T_Event]):
 
     def inject_global_raw(self, *dispatchers: T_Dispatcher):
         for dispatcher in dispatchers[::-1]:
-            self.execution_contexts[0].dispatchers.insert(1, dispatcher)
-
-        self.flush_lifecycle_refs(dispatchers)
+            self.broadcast.global_dispatchers.insert(1, dispatcher)
 
     async def exec_lifecycle(self, lifecycle_name: str, *args, **kwargs):
         lifecycle_funcs = self.execution_contexts[-1].lifecycle_refs.get(lifecycle_name)
@@ -147,76 +117,44 @@ class DispatcherInterface(Generic[T_Event]):
                 continue
 
             result = get_lifecycle_refs(dispatcher)
-            if result:
-                for k, v in result.items():
-                    lifecycle_refs[k].append(v)
-
-    async def lookup_param_without_log(
-        self,
-        name: str,
-        annotation: Any,
-        default: Any,
-        using_path: List[List[T_Dispatcher]],
-    ) -> Any:
-        self.parameter_contexts.append(
-            ParameterContext(name, annotation, default, using_path)
-        )
-
-        try:
-            for dispatcher in self.current_path:
-                result = await getattr(dispatcher, "catch", dispatcher)(self)
-
-                if result is None:
-                    continue
-
-                if result.__class__ is Force:
-                    return result.target
-
-                return result
-            else:
-                raise RequirementCrashed(
-                    "the dispatching requirement crashed: ",
-                    self.name,
-                    self.annotation,
-                    self.default,
-                )
-        finally:
-            self.parameter_contexts.pop()
+            for k, v in result.items():
+                lifecycle_refs[k].append(v)
 
     async def lookup_param(
         self,
         name: str,
         annotation: Any,
         default: Any,
-        using_path: List[List[T_Dispatcher]] = None,
+        oplog: Any,
     ) -> Any:
-        self.parameter_contexts.append(
-            ParameterContext(
-                name,
-                annotation,
-                default,
-                using_path or self.dispatcher_pure_generator(),
-            )
-        )
-        track_log = self.track_log.log
+        continued = 0
+        self.parameter_contexts.append(ParameterContext(name, annotation, default))
 
-        track_log.append((TrackLogType.LookupStart, name, annotation, default))
         try:
-            for dispatcher in self.current_path:
+            self.execution_contexts[-1].path = NestableIterable(oplog[0])
+            for dispatcher in self.execution_contexts[-1].path:
+                result = await getattr(dispatcher, "catch", dispatcher)(self)
+                if result is None:  # 不可靠.
+                    break
+                if result.__class__ is Force:
+                    return result.target
+                return result
+            oplog[0].clear()
+            self.execution_contexts[-1].path = self.execution_contexts[-1].path
+            for dispatcher in self.execution_contexts[-1].path:
                 result = await getattr(dispatcher, "catch", dispatcher)(self)
 
                 if result is None:
-                    self.track_log.fluent_success = False
-                    track_log.append((TrackLogType.Continue, name, dispatcher))
+                    continued += 1
                     continue
 
                 if result.__class__ is Force:
                     return result.target
 
-                track_log.append((TrackLogType.Result, name, dispatcher))
+                oplog[0].append(dispatcher)
+                oplog[1] += continued
                 return result
             else:
-                track_log.append((TrackLogType.RequirementCrashed, name))
                 raise RequirementCrashed(
                     "the dispatching requirement crashed: ",
                     self.name,
@@ -224,41 +162,16 @@ class DispatcherInterface(Generic[T_Event]):
                     self.default,
                 )
         finally:
-            track_log.append((TrackLogType.LookupEnd, name))
             self.parameter_contexts.pop()
 
-    async def lookup_using_current(self) -> Any:
-        for dispatcher in self.current_path:
-            result = await getattr(dispatcher, "catch", dispatcher)(self)
-            if result is None:
-                continue
-
-            if result.__class__ is Force:
-                return result.target
-
-            return result
-        else:
-            raise RequirementCrashed(
-                "the dispatching requirement crashed: ",
-                self.name,
-                self.annotation,
-                self.default,
-            )
-
     async def lookup_by_directly(
-        self,
-        dispatcher: T_Dispatcher,
-        name: str,
-        annotation: Any,
-        default: Any,
-        using_path: List[List[T_Dispatcher]] = None,
+        self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any
     ) -> Any:
         self.parameter_contexts.append(
             ParameterContext(
                 name,
                 annotation,
                 default,
-                using_path or self.dispatcher_pure_generator(),
             )
         )
 
