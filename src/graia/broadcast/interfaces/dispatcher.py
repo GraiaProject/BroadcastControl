@@ -1,7 +1,8 @@
+import inspect
 from functools import lru_cache
 from inspect import getattr_static
-import inspect
-from typing import TYPE_CHECKING, Any, Dict, Generic, Iterable, List, Tuple, TypeVar
+from typing import (TYPE_CHECKING, Any, Dict, Generic, Iterable, List, Tuple,
+                    TypeVar)
 
 from ..entities.context import ExecutionContext
 from ..entities.dispatcher import BaseDispatcher
@@ -166,7 +167,7 @@ class DispatcherInterface(Generic[T_Event]):
     async def lookup_by_directly(
         self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any
     ) -> Any:
-        self.parameter_contexts.append((name,annotation,default))
+        self.parameter_contexts.append((name, annotation, default))
 
         try:
             result = await getattr(dispatcher, "catch", dispatcher)(self)  # type: ignore

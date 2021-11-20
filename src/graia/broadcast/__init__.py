@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import traceback
+from collections import UserList
 from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
 
 from .builtin.event import ExceptionThrowed
@@ -10,40 +11,26 @@ from .entities.exectarget import ExecTarget
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .exceptions import (
-    DisabledNamespace,
-    ExecutionStop,
-    ExistedNamespace,
-    InvalidEventName,
-    PropagationCancelled,
-    RegisteredEventListener,
-    RequirementCrashed,
-    UnexistedNamespace,
-)
+from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
+                         InvalidEventName, PropagationCancelled,
+                         RegisteredEventListener, RequirementCrashed,
+                         UnexistedNamespace)
 from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
-from .utilles import (
-    Ctx,
-    argument_signature,
-    dispatcher_mixin_handler,
-    group_dict,
-    printer,
-    run_always_await_safely,
-)
-
-from collections import UserList
+from .utilles import (Ctx, argument_signature, dispatcher_mixin_handler,
+                      group_dict, printer, run_always_await_safely)
 
 
 class DebugList(UserList):
     def extend(self, item) -> None:
         print(item)
         return super().extend(item)
-    
+
     def append(self, item) -> None:
         print(item)
         return super().append(item)
-    
+
     def insert(self, i: int, item) -> None:
         print(i, item)
         return super().insert(i, item)

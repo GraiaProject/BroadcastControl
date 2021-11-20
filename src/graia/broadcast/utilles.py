@@ -2,18 +2,8 @@ import inspect
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from functools import lru_cache
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Awaitable,
-    Callable,
-    Generic,
-    Iterable,
-    List,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import (TYPE_CHECKING, Any, Awaitable, Callable, Generic, Iterable,
+                    List, Type, TypeVar, Union)
 
 from .entities.dispatcher import BaseDispatcher
 
@@ -107,7 +97,9 @@ def isasyncgen(o):
 
 
 @lru_cache(None)
-def dispatcher_mixin_handler(dispatcher: Union[Type[BaseDispatcher], BaseDispatcher]) -> "List[T_Dispatcher]":
+def dispatcher_mixin_handler(
+    dispatcher: Union[Type[BaseDispatcher], BaseDispatcher]
+) -> "List[T_Dispatcher]":
     unbound_mixin = getattr(dispatcher, "mixin", [])
     result: "List[T_Dispatcher]" = [dispatcher]
 
