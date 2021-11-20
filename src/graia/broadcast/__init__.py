@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import traceback
-from typing import Callable, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
 
 from .builtin.event import ExceptionThrowed
 from .entities.decorator import Decorator
@@ -28,8 +28,25 @@ from .utilles import (
     argument_signature,
     dispatcher_mixin_handler,
     group_dict,
+    printer,
     run_always_await_safely,
 )
+
+from collections import UserList
+
+
+class DebugList(UserList):
+    def extend(self, item) -> None:
+        print(item)
+        return super().extend(item)
+    
+    def append(self, item) -> None:
+        print(item)
+        return super().append(item)
+    
+    def insert(self, i: int, item) -> None:
+        print(i, item)
+        return super().insert(i, item)
 
 
 class Broadcast:
@@ -120,33 +137,35 @@ class Broadcast:
             is_exectarget = True
 
         if is_listener:
-            if target.namespace.disabled:
+            if target.namespace.disabled:  # type: ignore
                 raise DisabledNamespace(
-                    "catched a disabled namespace: {0}".format(target.namespace.name)
+                    "caught a disabled namespace: {0}".format(target.namespace.name)  # type: ignore
                 )
 
-        target_callable = target.callable if is_exectarget else target
+        target_callable: "Callable[..., Any]" = target.callable if is_exectarget else target  # type: ignore
         parameter_compile_result = {}
 
         dii = self.dispatcher_interface
 
         dispatchers = dispatchers or []
+
         if is_exectarget:
             dispatchers.extend(target.inline_dispatchers)
             if is_listener:
-                dispatchers.extend(target.namespace.injected_dispatchers)
+                dispatchers.extend(target.namespace.injected_dispatchers)  # type: ignore
 
         if use_global_dispatchers:
-            dispatchers.extend(self.global_dispatchers)
+            for i in self.global_dispatchers:
+                dispatchers.insert(0, i)
 
         dii.start_execution(dispatchers)
         try:
             await dii.exec_lifecycle("beforeExecution")
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):
-                    oplog = [target.param_paths.setdefault(name, []), 0]
+                    optimized_log = [target.param_paths.setdefault(name, []), 0]
                     parameter_compile_result[name] = await dii.lookup_param(
-                        name, annotation, default, oplog
+                        name, annotation, default, optimized_log
                     )
 
                 for hl_d in target.decorators:
@@ -291,9 +310,9 @@ class Broadcast:
     ):
         if isinstance(event, str):
             _name = event
-            event = self.findEvent(event)
+            event = self.findEvent(event)  # type: ignore
             if not event:
-                raise InvalidEventName(_name + " is not vaild!")  # type: ignore
+                raise InvalidEventName(_name + " is not valid!")  # type: ignore
         priority = int(priority)
 
         def receiver_wrapper(callable_target):
@@ -305,16 +324,16 @@ class Broadcast:
                         namespace=namespace or self.getDefaultNamespace(),
                         inline_dispatchers=dispatchers,
                         priority=priority,
-                        listening_events=[event],
+                        listening_events=[event],  # type: ignore
                         decorators=decorators,
                     )
                 )
             else:
                 if event not in may_listener.listening_events:
-                    may_listener.listening_events.append(event)
+                    may_listener.listening_events.append(event)  # type: ignore
                 else:
                     raise RegisteredEventListener(
-                        event.__name__, "has been registered!"
+                        event.__name__, "has been registered!"  # type: ignore
                     )
             return callable_target
 

@@ -12,6 +12,7 @@ from graia.broadcast.builtin.decorators import Depend
 from graia.broadcast.entities.decorator import Decorator
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import Dispatchable
+from graia.broadcast.entities.exectarget import ExecTarget
 from graia.broadcast.entities.listener import Listener
 from graia.broadcast.exceptions import ExecutionStop, PropagationCancelled
 from graia.broadcast.interfaces.decorator import DecoratorInterface
@@ -52,7 +53,7 @@ async def r(r: str, d: str, c: str):
     pass
 
 
-count = 10000
+count = 1
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -64,14 +65,10 @@ for _ in range(count):
     # broadcast.postEvent(event)
     # tasks.append(
     #    loop.create_task(broadcast.Executor(listener, event)))
-    tasks.append(broadcast.Executor(listener, dispatchers=mixins))
+    tasks.append(broadcast.Executor(ExecTarget(r), dispatchers=mixins.copy()))
 
 s = time.time()
-print(s)
-
-"""
-loop.run_until_complete(asyncio.gather(*tasks))
-"""
+#print(s)
     #cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
 loop.run_until_complete(asyncio.gather(*tasks))
     # loop.run_until_complete(asyncio.gather(*[r(1, 2, 3, 4) for _ in range(count)]))
@@ -81,4 +78,5 @@ e = time.time()
 n = e - s
 print(f"used {n}, {count/n}o/s")
 print(listener.param_paths)
+print(broadcast.dispatcher_interface)
 # print(tasks)

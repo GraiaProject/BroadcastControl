@@ -23,21 +23,3 @@ class ExecutionContext:
         self.dispatchers = dispatchers
 
         self.lifecycle_refs = LF_TEMPLATE.copy()
-
-
-class ParameterContext:
-    __slots__ = ("name", "annotation", "default")
-
-    name: str
-    annotation: Any
-    default: Any
-
-    def __init__(self, name, annotation, default):
-        self.name = name
-        self.annotation = annotation
-        self.default = default
-
-    def __repr__(self) -> str:
-        return "<ParameterContext name={0} annotation={1} default={2}".format(
-            self.name, self.annotation, self.default
-        )

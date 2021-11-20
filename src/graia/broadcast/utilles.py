@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from functools import lru_cache
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -15,6 +16,9 @@ from typing import (
 )
 
 from .entities.dispatcher import BaseDispatcher
+
+if TYPE_CHECKING:
+    from graia.broadcast.typing import T_Dispatcher
 
 
 async def run_always_await(any_callable: Union[Awaitable, Callable]):
@@ -40,7 +44,7 @@ class Ctx(Generic[T]):
     def __init__(self, name: str) -> None:
         self.current_ctx = ContextVar(name)
 
-    def get(self, default: Union[D, T] = None) -> Union[T, D]:
+    def get(self, default: Union[T, D] = None) -> Union[T, D]:
         return self.current_ctx.get(default)
 
     def set(self, value: T):
@@ -103,9 +107,9 @@ def isasyncgen(o):
 
 
 @lru_cache(None)
-def dispatcher_mixin_handler(dispatcher: Union[Type[BaseDispatcher], BaseDispatcher]):
+def dispatcher_mixin_handler(dispatcher: Union[Type[BaseDispatcher], BaseDispatcher]) -> "List[T_Dispatcher]":
     unbound_mixin = getattr(dispatcher, "mixin", [])
-    result = [dispatcher]
+    result: "List[T_Dispatcher]" = [dispatcher]
 
     for i in unbound_mixin:
         if issubclass(i, BaseDispatcher):
@@ -125,14 +129,11 @@ class NestableIterable(Iterable[T]):
 
     def __iter__(self):
         index = self.index_stack[-1]
-        self.index_stack.append(self.index_stack[-1])
+        self.index_stack.append(index)
 
         start_offset = index + index and 1
-        try:
-            for self.index_stack[-1], content in enumerate(
-                self.iterable[start_offset:],
-                start=start_offset,
-            ):
-                yield content
-        finally:
-            self.index_stack.pop()
+        for self.index_stack[-1], content in enumerate(
+            self.iterable[start_offset:],
+            start=start_offset,
+        ):
+            yield content

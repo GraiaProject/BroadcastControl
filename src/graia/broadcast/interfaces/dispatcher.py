@@ -1,8 +1,9 @@
 from functools import lru_cache
 from inspect import getattr_static
-from typing import TYPE_CHECKING, Any, Dict, Generic, Iterable, List, TypeVar
+import inspect
+from typing import TYPE_CHECKING, Any, Dict, Generic, Iterable, List, Tuple, TypeVar
 
-from ..entities.context import ExecutionContext, ParameterContext
+from ..entities.context import ExecutionContext
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import Dispatchable
 from ..entities.signatures import Force
@@ -46,7 +47,7 @@ class DispatcherInterface(Generic[T_Event]):
     broadcast: "Broadcast"
 
     execution_contexts: List[ExecutionContext]
-    parameter_contexts: List[ParameterContext]
+    parameter_contexts: List[Tuple[str, Any, Any]]
 
     def __init__(self, broadcast_instance: "Broadcast") -> None:
         self.broadcast = broadcast_instance
@@ -55,15 +56,15 @@ class DispatcherInterface(Generic[T_Event]):
 
     @property
     def name(self) -> str:
-        return self.parameter_contexts[-1].name
+        return self.parameter_contexts[-1][0]
 
     @property
     def annotation(self) -> Any:
-        return self.parameter_contexts[-1].annotation
+        return self.parameter_contexts[-1][1]
 
     @property
     def default(self) -> Any:
-        return self.parameter_contexts[-1].default
+        return self.parameter_contexts[-1][2]
 
     @property
     def event(self) -> T_Event:
@@ -78,6 +79,7 @@ class DispatcherInterface(Generic[T_Event]):
         dispatchers: List[T_Dispatcher],
     ):
         self.execution_contexts.append(ExecutionContext(dispatchers))
+        self.execution_contexts[-1].path = NestableIterable([])
         self.flush_lifecycle_refs(dispatchers)
         return self
 
@@ -121,24 +123,25 @@ class DispatcherInterface(Generic[T_Event]):
         name: str,
         annotation: Any,
         default: Any,
-        oplog: Any,
+        optimized_log: Any,
     ) -> Any:
         continued = 0
-        self.parameter_contexts.append(ParameterContext(name, annotation, default))
+        self.parameter_contexts.append((name, annotation, default))
+        dispatch_path = self.execution_contexts[-1].path
 
         try:
-            self.execution_contexts[-1].path = NestableIterable(oplog[0])
-            for dispatcher in self.execution_contexts[-1].path:
-                result = await getattr(dispatcher, "catch", dispatcher)(self)
+            dispatch_path.iterable = optimized_log[0]
+            for dispatcher in dispatch_path:
+                result = await getattr(dispatcher, "catch", dispatcher)(self)  # type: ignore
                 if result is None:  # 不可靠.
                     break
                 if result.__class__ is Force:
                     return result.target
                 return result
-            oplog[0].clear()
-            self.execution_contexts[-1].path = NestableIterable(self.execution_contexts[-1].dispatchers)
-            for dispatcher in self.execution_contexts[-1].path:
-                result = await getattr(dispatcher, "catch", dispatcher)(self)
+            optimized_log[0].clear()
+            dispatch_path.iterable = self.execution_contexts[-1].dispatchers
+            for dispatcher in dispatch_path:
+                result = await getattr(dispatcher, "catch", dispatcher)(self)  # type: ignore
 
                 if result is None:
                     continued += 1
@@ -147,8 +150,8 @@ class DispatcherInterface(Generic[T_Event]):
                 if result.__class__ is Force:
                     return result.target
 
-                oplog[0].append(dispatcher)
-                oplog[1] += continued
+                optimized_log[0].append(dispatcher)
+                optimized_log[1] += continued
                 return result
             else:
                 raise RequirementCrashed(
@@ -163,16 +166,10 @@ class DispatcherInterface(Generic[T_Event]):
     async def lookup_by_directly(
         self, dispatcher: T_Dispatcher, name: str, annotation: Any, default: Any
     ) -> Any:
-        self.parameter_contexts.append(
-            ParameterContext(
-                name,
-                annotation,
-                default,
-            )
-        )
+        self.parameter_contexts.append((name,annotation,default))
 
         try:
-            result = await getattr(dispatcher, "catch", dispatcher)(self)
+            result = await getattr(dispatcher, "catch", dispatcher)(self)  # type: ignore
             if result.__class__ is Force:
                 return result.target
 

@@ -4,5 +4,9 @@
     "python.linting.banditEnabled": false,
     "maven.view": "hierarchical",
     "python.formatting.provider": "black",
-    "python.pythonPath": "C:\\Users\\Chenw\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\graia-broadcast-kkIP7ti5-py3.8"
+    "python.pythonPath": "C:\\Users\\Chenw\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\graia-broadcast-kkIP7ti5-py3.8",
+    "jupyter.jupyterServerType": "local",
+    "cSpell.words": [
+        "Unexisted"
+    ]
 }
