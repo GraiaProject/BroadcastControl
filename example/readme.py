@@ -1,6 +1,7 @@
 import asyncio
 
-from graia.broadcast import BaseDispatcher, Broadcast, Dispatchable
+from graia.broadcast import Broadcast, Dispatchable
+from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 

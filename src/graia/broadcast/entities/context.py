@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Callable, Dict, Generator, List, TypeVar, Union
 
 from graia.broadcast.utilles import NestableIterable
@@ -18,9 +19,8 @@ class ExecutionContext:
 
     path: NestableIterable
 
-    def __init__(self, dispatchers: List[T_Dispatcher], path: NestableIterable):
+    def __init__(self, dispatchers: List[T_Dispatcher]):
         self.dispatchers = dispatchers
-        self.path = path
 
         self.lifecycle_refs = LF_TEMPLATE.copy()
 

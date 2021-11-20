@@ -77,12 +77,8 @@ class DispatcherInterface(Generic[T_Event]):
         self,
         dispatchers: List[T_Dispatcher],
     ):
-        self.execution_contexts.append(
-            ExecutionContext(
-                dispatchers, NestableIterable(self.execution_contexts[-1].dispatchers)
-            )
-        )
-        self.flush_lifecycle_refs(self.execution_contexts[-1].dispatchers)
+        self.execution_contexts.append(ExecutionContext(dispatchers))
+        self.flush_lifecycle_refs(dispatchers)
         return self
 
     def clean(self):
@@ -140,7 +136,7 @@ class DispatcherInterface(Generic[T_Event]):
                     return result.target
                 return result
             oplog[0].clear()
-            self.execution_contexts[-1].path = self.execution_contexts[-1].path
+            self.execution_contexts[-1].path = NestableIterable(self.execution_contexts[-1].dispatchers)
             for dispatcher in self.execution_contexts[-1].path:
                 result = await getattr(dispatcher, "catch", dispatcher)(self)
 
