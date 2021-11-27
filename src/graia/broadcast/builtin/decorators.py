@@ -28,9 +28,7 @@ class Depend(Decorator):
                 return Force(attempt)
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
-            dispatchers=interface.dispatcher_interface.execution_contexts[
-                -1
-            ].dispatchers,
+            dispatchers=interface.dispatcher_interface.execution_contexts[-1].dispatchers,
         )
 
         if self.cache:

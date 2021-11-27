@@ -25,9 +25,7 @@ class InterruptControl:
     def __init__(self, broadcast: Broadcast) -> None:
         self.broadcast = broadcast
 
-    async def wait(
-        self, waiter: Waiter, priority: Optional[Union[int, Priority]] = None, **kwargs
-    ):
+    async def wait(self, waiter: Waiter, priority: Optional[Union[int, Priority]] = None, **kwargs):
         """生成一一次性使用的监听器并将其挂载, 该监听器用于获取特定类型的事件, 并根据设定对事件进行过滤;
         当获取到符合条件的对象时, 堵塞将被解除, 同时该方法返回从监听器得到的值.
 
@@ -43,12 +41,8 @@ class InterruptControl:
 
         listeners = set()
         for event_type in waiter.listening_events:
-            listener_callable = self.leader_listener_generator(
-                waiter, event_type, future
-            )
-            self.broadcast.receiver(
-                event_type, priority=priority or waiter.priority, **kwargs
-            )(listener_callable)
+            listener_callable = self.leader_listener_generator(waiter, event_type, future)
+            self.broadcast.receiver(event_type, priority=priority or waiter.priority, **kwargs)(listener_callable)
             listener = self.broadcast.getListener(listener_callable)
             listeners.add(listener)
 
@@ -59,9 +53,7 @@ class InterruptControl:
                 for i in listeners:
                     self.broadcast.removeListener(i)
 
-    def leader_listener_generator(
-        self, waiter: Waiter, event_type: Type[Dispatchable], future: Future
-    ):
+    def leader_listener_generator(self, waiter: Waiter, event_type: Type[Dispatchable], future: Future):
         async def inside_listener(event: event_type):
             if future.done():
                 return RemoveMe()

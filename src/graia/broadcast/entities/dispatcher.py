@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from types import TracebackType
-from typing import TYPE_CHECKING, List, Optional, Type, Union
+from typing import TYPE_CHECKING, List, Type, Union
 
 if TYPE_CHECKING:
     from ..interfaces.dispatcher import DispatcherInterface
@@ -27,46 +26,6 @@ class BaseDispatcher(metaclass=ABCMeta):
         """
         pass
 
-    def afterDispatch(
-        self,
-        interface: "DispatcherInterface",
-        exception: Optional[Exception],
-        tb: Optional[TracebackType],
-    ):
-        """生命周期钩子: 在参数被解析完后被调用
-
-        Args:
-            interface (DispatcherInterface): `Dispatcher` 服务的主要对象, 可以从其中获取以下信息:
-             - 当前解析中的参数的信息;
-             - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
-            exception (Optional[Exception]): 可能存在的异常对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
-            tb (Optional[TracebackType]): 可能存在的异常堆栈对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
-        """
-        pass
-
-    def beforeExecution(self, interface: "DispatcherInterface"):
-        """生命周期钩子: 在整个执行流程(包括参数解析)开始前被调用
-
-        Args:
-            interface (DispatcherInterface): `Dispatcher` 服务的主要对象, 可以从其中获取以下信息:
-             - 当前解析中的参数的信息;
-             - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
-        """
-        pass
-
-    def afterExecution(
-        self,
-        interface: "DispatcherInterface",
-        exception: Optional[Exception],
-        tb: Optional[TracebackType],
-    ):
-        """生命周期钩子: 在整个执行流程(包括参数解析)完成(包含因异常被抛出而退出)后被调用.
-
-        Args:
-            interface (DispatcherInterface): `Dispatcher` 服务的主要对象, 可以从其中获取以下信息:
-             - 当前解析中的参数的信息;
-             - 当前执行的信息, 比如正在处理的事件, `Listener`/`ExecTarget` etc.;
-            exception (Optional[Exception]): 可能存在的异常对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
-            tb (Optional[TracebackType]): 可能存在的异常堆栈对象, 若为 None 则表示无异常被抛出, 执行顺利完成.
-        """
-        pass
+    beforeExecution = None
+    afterDispatch = None
+    afterExecution = None

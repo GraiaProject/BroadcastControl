@@ -2,7 +2,7 @@ import asyncio
 import sys
 import traceback
 from collections import UserList
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
+from typing import Callable, Dict, Iterable, List, Optional, Type, Union
 
 from .builtin.event import ExceptionThrowed
 from .entities.decorator import Decorator
@@ -19,7 +19,7 @@ from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
 from .utilles import (Ctx, argument_signature, dispatcher_mixin_handler,
-                      group_dict, printer, run_always_await_safely)
+                      group_dict, run_always_await_safely)
 
 
 class DebugList(UserList):
@@ -91,19 +91,12 @@ class Broadcast:
             )
         )
 
-    async def layered_scheduler(
-        self, listener_generator: Iterable[Listener], event: Dispatchable
-    ):
-        grouped: Dict[int, List[Listener]] = group_dict(
-            listener_generator, lambda x: x.priority
-        )
+    async def layered_scheduler(self, listener_generator: Iterable[Listener], event: Dispatchable):
+        grouped: Dict[int, List[Listener]] = group_dict(listener_generator, lambda x: x.priority)
         event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
         with self.event_ctx.use(event):
             for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
-                coros = [
-                    self.Executor(target=i, dispatchers=event_dispatcher_mixin)
-                    for i in current_group
-                ]
+                coros = [self.Executor(target=i, dispatchers=event_dispatcher_mixin) for i in current_group]
                 done_tasks, _ = await asyncio.wait(coros)
                 for task in done_tasks:
                     if task.exception().__class__ is PropagationCancelled:
@@ -129,7 +122,7 @@ class Broadcast:
                     "caught a disabled namespace: {0}".format(target.namespace.name)  # type: ignore
                 )
 
-        target_callable: "Callable[..., Any]" = target.callable if is_exectarget else target  # type: ignore
+        target_callable = target.callable if is_exectarget else target  # type: ignore
         parameter_compile_result = {}
 
         dii = self.dispatcher_interface
@@ -137,7 +130,7 @@ class Broadcast:
         dispatchers = dispatchers or []
 
         if is_exectarget:
-            dispatchers.extend(target.inline_dispatchers)
+            dispatchers.extend(target.dispatchers)
             if is_listener:
                 dispatchers.extend(target.namespace.injected_dispatchers)  # type: ignore
 
@@ -147,13 +140,15 @@ class Broadcast:
 
         dii.start_execution(dispatchers)
         try:
-            await dii.exec_lifecycle("beforeExecution")
+            for dispatcher in dii.execution_contexts[-1].dispatchers:
+                i = getattr(dispatcher, "beforeExecution", None)
+                if i:
+                    await run_always_await_safely(i, dii)  # type: ignore
+
             if is_exectarget:
-                for name, annotation, default in argument_signature(target_callable):
-                    optimized_log = [target.param_paths.setdefault(name, []), 0]
-                    parameter_compile_result[name] = await dii.lookup_param(
-                        name, annotation, default, optimized_log
-                    )
+                for name, annotation, default in argument_signature(target_callable):  # type: ignore
+                    optimized_log = target.param_paths.setdefault(name, [])
+                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, optimized_log)
 
                 for hl_d in target.decorators:
                     await dii.lookup_by_directly(
@@ -164,15 +159,15 @@ class Broadcast:
                     )
 
             else:
-                for name, annotation, default in argument_signature(target_callable):
-                    parameter_compile_result[name] = await dii.lookup_param(
-                        name, annotation, default, [[], 0]
-                    )
+                for name, annotation, default in argument_signature(target_callable):  # type: ignore
+                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, [])
 
-            await dii.exec_lifecycle("afterDispatch", None, None)
-            result = await run_always_await_safely(
-                target_callable, **parameter_compile_result
-            )
+            for dispatcher in dii.execution_contexts[-1].dispatchers:
+                i = getattr(dispatcher, "afterDispatch", None)
+                if i:
+                    await run_always_await_safely(i, dii, None, None)  # type: ignore
+
+            result = await run_always_await_safely(target_callable, **parameter_compile_result)
         except (ExecutionStop, PropagationCancelled):
             raise
         except RequirementCrashed:
@@ -188,7 +183,11 @@ class Broadcast:
             raise
         finally:
             _, exception, tb = sys.exc_info()
-            await dii.exec_lifecycle("afterExecution", exception, tb)
+            for dispatcher in dii.execution_contexts[-1].dispatchers:
+                i = getattr(dispatcher, "afterExecution", None)
+                if i:
+                    await run_always_await_safely(i, dii, exception, tb)  # type: ignore
+
             dii.clean()
 
         if result.__class__ is Force:
@@ -222,14 +221,10 @@ class Broadcast:
     def getDefaultNamespace(self):
         return self.default_namespace
 
-    def createNamespace(
-        self, name, *, priority: int = 0, hide: bool = False, disabled: bool = False
-    ):
+    def createNamespace(self, name, *, priority: int = 0, hide: bool = False, disabled: bool = False):
         if self.containNamespace(name):
             raise ExistedNamespace(name, "has been created!")
-        self.namespaces.append(
-            Namespace(name=name, priority=priority, hide=hide, disabled=disabled)
-        )
+        self.namespaces.append(Namespace(name=name, priority=priority, hide=hide, disabled=disabled))
         return self.namespaces[-1]
 
     def removeNamespace(self, name):
@@ -319,9 +314,7 @@ class Broadcast:
                 if event not in may_listener.listening_events:
                     may_listener.listening_events.append(event)  # type: ignore
                 else:
-                    raise RegisteredEventListener(
-                        event.__name__, "has been registered!"  # type: ignore
-                    )
+                    raise RegisteredEventListener(event.__name__, "has been registered!")  # type: ignore
             return callable_target
 
         return receiver_wrapper

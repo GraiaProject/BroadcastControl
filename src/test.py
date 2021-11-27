@@ -21,7 +21,6 @@ from graia.broadcast.interrupt import InterruptControl
 from graia.broadcast.interrupt.waiter import Waiter
 from graia.broadcast.utilles import dispatcher_mixin_handler
 
-
 class TestEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
         @staticmethod
@@ -30,7 +29,7 @@ class TestEvent(Dispatchable):
                 return "1"
 
         @staticmethod
-        async def beforeDispatch(interface: "DispatcherInterface"):
+        async def beforeExecution(interface: "DispatcherInterface"):
             pass
 
 
@@ -53,7 +52,7 @@ async def r(r: str, d: str, c: str):
     pass
 
 
-count = 1
+count = 10000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -76,6 +75,7 @@ loop.run_until_complete(asyncio.gather(*tasks))
 # loop.run_until_complete(asyncio.sleep(0.1))
 e = time.time()
 n = e - s
+print(n, count, n)
 print(f"used {n}, {count/n}o/s")
 print(listener.param_paths)
 print(broadcast.dispatcher_interface)

@@ -72,9 +72,7 @@ def argument_signature(callable_target: Callable):
     return [
         (
             name,
-            param.annotation
-            if param.annotation is not inspect.Signature.empty
-            else None,
+            param.annotation if param.annotation is not inspect.Signature.empty else None,
             param.default if param.default is not inspect.Signature.empty else None,
         )
         for name, param in inspect.signature(callable_target).parameters.items()
@@ -97,9 +95,7 @@ def isasyncgen(o):
 
 
 @lru_cache(None)
-def dispatcher_mixin_handler(
-    dispatcher: Union[Type[BaseDispatcher], BaseDispatcher]
-) -> "List[T_Dispatcher]":
+def dispatcher_mixin_handler(dispatcher: Union[Type[BaseDispatcher], BaseDispatcher]) -> "List[T_Dispatcher]":
     unbound_mixin = getattr(dispatcher, "mixin", [])
     result: "List[T_Dispatcher]" = [dispatcher]
 

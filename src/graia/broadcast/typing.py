@@ -5,14 +5,6 @@ if TYPE_CHECKING:
     from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 
-T_Dispatcher = Union[
-    Type["BaseDispatcher"], "BaseDispatcher", Callable[["DispatcherInterface"], Any]
-]
+T_Dispatcher = Union[Type["BaseDispatcher"], "BaseDispatcher", Callable[["DispatcherInterface"], Any]]
 
 T_Dispatcher_Callable = Callable[["DispatcherInterface"], Any]
-
-DEFAULT_LIFECYCLE_NAMES = (
-    "beforeExecution",
-    "afterDispatch",
-    "afterExecution",
-)
