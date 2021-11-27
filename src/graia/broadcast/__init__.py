@@ -127,7 +127,7 @@ class Broadcast:
 
         dii = self.dispatcher_interface
 
-        dispatchers = dispatchers or []
+        dispatchers = dispatchers and dispatchers.copy() or []
 
         if is_exectarget:
             dispatchers.extend(target.dispatchers)
@@ -178,7 +178,7 @@ class Broadcast:
             if event is not None and event.__class__ is not ExceptionThrowed:
                 if print_exception:
                     traceback.print_exc()
-                elif post_exception_event:
+                if post_exception_event:
                     self.postEvent(ExceptionThrowed(exception=e, event=event))
             raise
         finally:
