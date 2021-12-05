@@ -120,8 +120,11 @@ class NestableIterable(Iterable[T]):
         self.index_stack.append(index)
 
         start_offset = index + index and 1
-        for self.index_stack[-1], content in enumerate(
-            self.iterable[start_offset:],
-            start=start_offset,
-        ):
-            yield content
+        try:
+            for self.index_stack[-1], content in enumerate(
+                self.iterable[start_offset:],
+                start=start_offset,
+            ):
+                yield content
+        finally:
+            self.index_stack.pop()

@@ -70,7 +70,7 @@ s = time.time()
 #print(s)
     #cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
 loop.run_until_complete(asyncio.gather(*tasks))
-    # loop.run_until_complete(asyncio.gather(*[r(1, 2, 3, 4) for _ in range(count)]))
+#loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
 
 # loop.run_until_complete(asyncio.sleep(0.1))
 e = time.time()
