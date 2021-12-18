@@ -127,18 +127,14 @@ class Broadcast:
 
         dii = self.dispatcher_interface
 
-        dispatchers = dispatchers and dispatchers.copy() or []
+        dispatchers = [  # type: ignore
+            *(self.global_dispatchers if use_global_dispatchers else []),
+            *(dispatchers if dispatchers else []),
+            *(target.dispatchers if is_exectarget else []),
+            *(target.namespace.injected_dispatchers if is_listener else []),
+        ]
 
-        if is_exectarget:
-            dispatchers.extend(target.dispatchers)
-            if is_listener:
-                dispatchers.extend(target.namespace.injected_dispatchers)  # type: ignore
-
-        if use_global_dispatchers:
-            for i in self.global_dispatchers:
-                dispatchers.insert(0, i)
-
-        dii.start_execution(dispatchers)
+        dii.start_execution(dispatchers)  # type: ignore
         try:
             for dispatcher in dii.execution_contexts[-1].dispatchers:
                 i = getattr(dispatcher, "beforeExecution", None)

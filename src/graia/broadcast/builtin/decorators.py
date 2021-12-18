@@ -6,7 +6,6 @@ from ..entities.exectarget import ExecTarget
 from ..entities.signatures import Force
 from ..exceptions import RequirementCrashed
 from ..interfaces.decorator import DecoratorInterface
-from ..utilles import dispatcher_mixin_handler
 
 
 class Depend(Decorator):

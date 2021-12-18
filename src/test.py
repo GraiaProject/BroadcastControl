@@ -21,6 +21,7 @@ from graia.broadcast.interrupt import InterruptControl
 from graia.broadcast.interrupt.waiter import Waiter
 from graia.broadcast.utilles import dispatcher_mixin_handler
 
+
 class TestEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
         @staticmethod
@@ -67,10 +68,10 @@ for _ in range(count):
     tasks.append(broadcast.Executor(ExecTarget(r), dispatchers=mixins.copy()))
 
 s = time.time()
-#print(s)
-    #cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
+# print(s)
+# cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
 loop.run_until_complete(asyncio.gather(*tasks))
-#loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
+# loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
 
 # loop.run_until_complete(asyncio.sleep(0.1))
 e = time.time()
