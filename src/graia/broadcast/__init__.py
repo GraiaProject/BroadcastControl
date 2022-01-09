@@ -91,19 +91,12 @@ class Broadcast:
             )
         )
 
-    async def layered_scheduler(
-        self, listener_generator: Iterable[Listener], event: Dispatchable
-    ):
-        grouped: Dict[int, List[Listener]] = group_dict(
-            listener_generator, lambda x: x.priority
-        )
+    async def layered_scheduler(self, listener_generator: Iterable[Listener], event: Dispatchable):
+        grouped: Dict[int, List[Listener]] = group_dict(listener_generator, lambda x: x.priority)
         event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
         with self.event_ctx.use(event):
             for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
-                coros = [
-                    self.Executor(target=i, dispatchers=event_dispatcher_mixin)
-                    for i in current_group
-                ]
+                coros = [self.Executor(target=i, dispatchers=event_dispatcher_mixin) for i in current_group]
                 done_tasks, _ = await asyncio.wait(coros)
                 for task in done_tasks:
                     if task.exception().__class__ is PropagationCancelled:
@@ -151,9 +144,7 @@ class Broadcast:
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):  # type: ignore
                     optimized_log = target.param_paths.setdefault(name, [])
-                    parameter_compile_result[name] = await dii.lookup_param(
-                        name, annotation, default, optimized_log
-                    )
+                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, optimized_log)
 
                 for hl_d in target.decorators:
                     await dii.lookup_by_directly(
@@ -165,18 +156,14 @@ class Broadcast:
 
             else:
                 for name, annotation, default in argument_signature(target_callable):  # type: ignore
-                    parameter_compile_result[name] = await dii.lookup_param(
-                        name, annotation, default, []
-                    )
+                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, [])
 
             for dispatcher in dii.execution_contexts[-1].dispatchers:
                 i = getattr(dispatcher, "afterDispatch", None)
                 if i:
                     await run_always_await_safely(i, dii, None, None)  # type: ignore
 
-            result = await run_always_await_safely(
-                target_callable, **parameter_compile_result
-            )
+            result = await run_always_await_safely(target_callable, **parameter_compile_result)
         except (ExecutionStop, PropagationCancelled):
             raise
         except RequirementCrashed:
@@ -230,14 +217,10 @@ class Broadcast:
     def getDefaultNamespace(self):
         return self.default_namespace
 
-    def createNamespace(
-        self, name, *, priority: int = 0, hide: bool = False, disabled: bool = False
-    ):
+    def createNamespace(self, name, *, priority: int = 0, hide: bool = False, disabled: bool = False):
         if self.containNamespace(name):
             raise ExistedNamespace(name, "has been created!")
-        self.namespaces.append(
-            Namespace(name=name, priority=priority, hide=hide, disabled=disabled)
-        )
+        self.namespaces.append(Namespace(name=name, priority=priority, hide=hide, disabled=disabled))
         return self.namespaces[-1]
 
     def removeNamespace(self, name):
