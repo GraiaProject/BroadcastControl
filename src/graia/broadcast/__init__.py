@@ -100,7 +100,7 @@ class Broadcast:
                 done_tasks, _ = await asyncio.wait(coros)
                 for task in done_tasks:
                     if task.exception().__class__ is PropagationCancelled:
-                        break
+                        return
 
     async def Executor(
         self,
