@@ -1,37 +1,37 @@
-from typing import TYPE_CHECKING, Any, Generic, List, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Optional, Tuple, TypeVar
 
-from ..entities.context import ExecutionContext
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import Dispatchable
 from ..entities.signatures import Force
 from ..exceptions import RequirementCrashed
 from ..typing import T_Dispatcher
-from ..utilles import NestableIterable
+from ..utilles import Ctx, NestableIterable
 
 if TYPE_CHECKING:
     from .. import Broadcast
-
-
-class EmptyEvent(Dispatchable):
-    class Dispatcher(BaseDispatcher):
-        @staticmethod
-        def catch(_):
-            pass
 
 
 T_Event = TypeVar("T_Event", bound=Dispatchable)
 
 
 class DispatcherInterface(Generic[T_Event]):
-    broadcast: "Broadcast"
+    ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
 
-    execution_contexts: List[ExecutionContext]
+    broadcast: "Broadcast"
+    dispatchers: List[T_Dispatcher]
+    local_storage: Dict[str, Any]
+    current_path: NestableIterable[T_Dispatcher]
+    current_oplog: List[T_Dispatcher]
+
     parameter_contexts: List[Tuple[str, Any, Any]]
 
-    def __init__(self, broadcast_instance: "Broadcast") -> None:
+    def __init__(self, broadcast_instance: "Broadcast", dispatchers: List[T_Dispatcher]) -> None:
         self.broadcast = broadcast_instance
-        self.execution_contexts = []
+        self.dispatchers = dispatchers
         self.parameter_contexts = []
+        self.local_storage = {}
+        self.current_path = NestableIterable([])
+        self.current_oplog = []
 
     @property
     def name(self) -> str:
@@ -53,20 +53,9 @@ class DispatcherInterface(Generic[T_Event]):
     def global_dispatcher(self) -> List[T_Dispatcher]:
         return self.broadcast.global_dispatchers
 
-    def start_execution(
-        self,
-        dispatchers: List[T_Dispatcher],
-    ):
-        self.execution_contexts.append(ExecutionContext(dispatchers))
-        self.execution_contexts[-1].path = NestableIterable([])
-        return self
-
-    def clean(self):
-        self.execution_contexts.pop()
-
     def inject_execution_raw(self, *dispatchers: T_Dispatcher):
         for dispatcher in dispatchers:
-            self.execution_contexts[-1].dispatchers.insert(0, dispatcher)
+            self.dispatchers.insert(0, dispatcher)
 
     def inject_global_raw(self, *dispatchers: T_Dispatcher):
         for dispatcher in dispatchers[::-1]:
@@ -77,24 +66,24 @@ class DispatcherInterface(Generic[T_Event]):
         name: str,
         annotation: Any,
         default: Any,
-        optimized_log: Any,
     ) -> Any:
         self.parameter_contexts.append((name, annotation, default))
-        dispatch_path = self.execution_contexts[-1].path
+        oplog = self.current_oplog
 
         try:
-            dispatch_path.iterable = optimized_log
-            for dispatcher in dispatch_path:
-                result = await getattr(dispatcher, "catch", dispatcher)(self)  # type: ignore
-                if result is None:  # 不可靠.
-                    break
-                if result.__class__ is Force:
-                    return result.target
-                return result
-            optimized_log.clear()
-            dispatch_path.iterable = self.execution_contexts[-1].dispatchers
-            for dispatcher in dispatch_path:
-                result = await getattr(dispatcher, "catch", dispatcher)(self)  # type: ignore
+            if oplog:
+                self.current_path.iterable = oplog
+                for dispatcher in self.current_path:
+                    result = await dispatcher.catch(self)
+                    if result is None:  # 不可靠.
+                        break
+                    if result.__class__ is Force:
+                        return result.target
+                    return result
+            oplog.clear()
+            self.current_path.iterable = self.dispatchers
+            for dispatcher in self.current_path:
+                result = await dispatcher.catch(self)
 
                 if result is None:
                     continue
@@ -102,7 +91,7 @@ class DispatcherInterface(Generic[T_Event]):
                 if result.__class__ is Force:
                     return result.target
 
-                optimized_log.append(dispatcher)
+                oplog.append(dispatcher)
                 return result
             else:
                 raise RequirementCrashed(
@@ -118,7 +107,7 @@ class DispatcherInterface(Generic[T_Event]):
         self.parameter_contexts.append((name, annotation, default))
 
         try:
-            result = await getattr(dispatcher, "catch", dispatcher)(self)  # type: ignore
+            result = await dispatcher.catch(self)
             if result.__class__ is Force:
                 return result.target
 

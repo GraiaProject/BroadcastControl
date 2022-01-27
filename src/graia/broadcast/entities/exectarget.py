@@ -9,7 +9,7 @@ class ExecTarget:
     dispatchers: List[T_Dispatcher]
     decorators: List[Decorator]
 
-    param_paths: Dict[Hashable, Dict[str, List[T_Dispatcher]]]
+    oplog: Dict[Hashable, Dict[str, List[T_Dispatcher]]]
 
     def __init__(
         self,
@@ -21,4 +21,4 @@ class ExecTarget:
         self.dispatchers = inline_dispatchers or []
         self.decorators = decorators or []
 
-        self.param_paths = {}
+        self.oplog = {}

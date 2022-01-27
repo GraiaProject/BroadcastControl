@@ -27,7 +27,7 @@ class Depend(Decorator):
                 return Force(attempt)
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
-            dispatchers=interface.dispatcher_interface.execution_contexts[-1].dispatchers,
+            dispatchers=interface.dispatcher_interface.dispatchers,
         )
 
         if self.cache:
@@ -46,10 +46,7 @@ class OptionalParam(Decorator):
             return Force(
                 await interface.dispatcher_interface.lookup_param(
                     interface.dispatcher_interface.name,
-                    interface.dispatcher_interface.annotation.__args__[0]
-                    if isinstance(interface.dispatcher_interface.annotation, typing._GenericAlias)  # type: ignore
-                    and type(None) in interface.dispatcher_interface.annotation.__args__
-                    else interface.dispatcher_interface.annotation,
+                    typing.get_origin(interface.dispatcher_interface.annotation) or interface.dispatcher_interface.annotation,
                     self.origin,
                 )
             )

@@ -4,6 +4,8 @@ import traceback
 from collections import UserList
 from typing import Callable, Dict, Iterable, List, Optional, Type, Union
 
+from graia.broadcast.entities.dispatcher import BaseDispatcher
+
 from .builtin.event import ExceptionThrowed
 from .entities.decorator import Decorator
 from .entities.event import Dispatchable
@@ -64,18 +66,20 @@ class Broadcast:
         self.namespaces = []
         self.listeners = []
         self.event_ctx = Ctx("bcc_event_ctx")
-        self.dispatcher_interface = DispatcherInterface(self)
-        self.decorator_interface = DecoratorInterface(self.dispatcher_interface)
+        self.decorator_interface = DecoratorInterface()
         self.global_dispatchers = [self.decorator_interface]
 
-        @self.dispatcher_interface.inject_global_raw
-        async def _(interface: DispatcherInterface):
-            if interface.annotation is interface.event.__class__:
-                return interface.event
-            elif interface.annotation is Broadcast:
-                return interface.broadcast
-            elif interface.annotation is DispatcherInterface:
-                return interface
+        @self.global_dispatchers.append
+        class BroadcastBuiltinDispatcher(BaseDispatcher):
+            @staticmethod
+            async def catch(interface: DispatcherInterface):
+                if interface.annotation is interface.event.__class__:
+                    return interface.event
+                elif interface.annotation is Broadcast:
+                    return interface.broadcast
+                elif interface.annotation is DispatcherInterface:
+                    return interface
+        
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(
@@ -130,27 +134,28 @@ class Broadcast:
         target_callable = target.callable if is_exectarget else target  # type: ignore
         parameter_compile_result = {}
 
-        dii = self.dispatcher_interface
-
         dispatchers = [  # type: ignore
             *(self.global_dispatchers if use_global_dispatchers else []),
             *(dispatchers if dispatchers else []),
             *(target.dispatchers if is_exectarget else []),
             *(target.namespace.injected_dispatchers if is_listener else []),
         ]
+        
+        dii = DispatcherInterface(self, dispatchers)
+        dii_token = dii.ctx.set(dii)
 
-        dii.start_execution(dispatchers)  # type: ignore
         try:
-            for dispatcher in dii.execution_contexts[-1].dispatchers:
+            for dispatcher in dispatchers:
                 i = getattr(dispatcher, "beforeExecution", None)
                 if i:
                     await run_always_await_safely(i, dii)  # type: ignore
 
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):  # type: ignore
-                    optimized_log = current_oplog.setdefault(name, [])
-                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, optimized_log)
+                    dii.current_oplog = current_oplog.setdefault(name, [])
+                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default)
 
+                dii.current_oplog = []
                 for hl_d in target.decorators:
                     await dii.lookup_by_directly(
                         self.decorator_interface,
@@ -163,7 +168,7 @@ class Broadcast:
                 for name, annotation, default in argument_signature(target_callable):  # type: ignore
                     parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, [])
 
-            for dispatcher in dii.execution_contexts[-1].dispatchers:
+            for dispatcher in dispatchers:
                 i = getattr(dispatcher, "afterDispatch", None)
                 if i:
                     await run_always_await_safely(i, dii, None, None)  # type: ignore
@@ -184,12 +189,12 @@ class Broadcast:
             raise
         finally:
             _, exception, tb = sys.exc_info()
-            for dispatcher in dii.execution_contexts[-1].dispatchers:
+            for dispatcher in dispatchers:
                 i = getattr(dispatcher, "afterExecution", None)
                 if i:
                     await run_always_await_safely(i, dii, exception, tb)  # type: ignore
 
-            dii.clean()
+            dii.ctx.reset(dii_token)
 
         if result.__class__ is Force:
             return result.content
