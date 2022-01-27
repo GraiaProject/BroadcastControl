@@ -52,17 +52,9 @@ class DispatcherInterface(Generic[T_Event]):
     def event(self) -> T_Event:
         return self.broadcast.event_ctx.get()  # type: ignore
 
-    @property
-    def global_dispatcher(self) -> List[T_Dispatcher]:
-        return self.broadcast.global_dispatchers
-
     def inject_execution_raw(self, *dispatchers: T_Dispatcher):
         for dispatcher in dispatchers:
             self.dispatchers.insert(0, dispatcher)
-
-    def inject_global_raw(self, *dispatchers: T_Dispatcher):
-        for dispatcher in dispatchers[::-1]:
-            self.broadcast.global_dispatchers.insert(1, dispatcher)
 
     async def lookup_param(
         self,
