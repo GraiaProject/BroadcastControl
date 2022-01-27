@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graia-broadcast"
-version = "0.14.5"
+version = "0.15.0"
 description = "a highly customizable, elegantly designed event system based on asyncio"
 authors = ["GreyElaina <GreyElaina@outlook.com>"]
 license = "MIT"
@@ -24,3 +24,8 @@ pyinstrument = "^4.0.4"
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+
+[[tool.poetry.source]]
+name = "tunapypi"
+default = true
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"

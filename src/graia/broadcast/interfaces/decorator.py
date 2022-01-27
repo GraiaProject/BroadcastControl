@@ -15,10 +15,11 @@ ctx_dei_returnvalue = Ctx("ctx_dei_returnvalue")
 class DecoratorInterface(BaseDispatcher):
     """Broadcast Control 内部机制 Decorator 的具体管理实现"""
 
-    dispatcher_interface: "DispatcherInterface"
+    @property
+    def dispatcher_interface(self) -> "DispatcherInterface":
+        from .dispatcher import DispatcherInterface
 
-    def __init__(self, dispatcher_interface: "DispatcherInterface"):
-        self.dispatcher_interface = dispatcher_interface
+        return DispatcherInterface.ctx.get()
 
     @property
     def name(self):
@@ -38,7 +39,7 @@ class DecoratorInterface(BaseDispatcher):
 
     @property
     def local_storage(self):
-        return self.dispatcher_interface.execution_contexts[-1].local_storage
+        return self.dispatcher_interface.local_storage
 
     async def catch(self, interface: "DispatcherInterface"):
         if isinstance(interface.default, Decorator):

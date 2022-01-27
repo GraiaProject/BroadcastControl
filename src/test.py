@@ -52,7 +52,7 @@ async def r(r: str, d: str, c: str):
     pass
 
 
-count = 10000
+count = 100000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -64,20 +64,24 @@ for _ in range(count):
     # broadcast.postEvent(event)
     # tasks.append(
     #    loop.create_task(broadcast.Executor(listener, event)))
-    tasks.append(broadcast.Executor(ExecTarget(r), dispatchers=mixins.copy()))
+    tasks.append(broadcast.Executor(listener, dispatchers=mixins.copy()))
 
 s = time.time()
 # print(s)
 # cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
 loop.run_until_complete(asyncio.gather(*tasks))
-# loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
+
+e = time.time()
+n1 = e - s
+
+s2 = time.time()
+loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
+e2 = time.time()
+n2 = e2 - s2
+
 
 # loop.run_until_complete(asyncio.sleep(0.1))
-e = time.time()
-n = e - s
-print(n, count, n)
-print(f"used {n}, {count/n}o/s")
-print(listener.param_paths)
-print(broadcast.dispatcher_interface)
-print(broadcast.dispatcher_interface.execution_contexts)
+print(n1, count, n2, n1 / n2)
+print(f"used {n1}, {count/n1}o/s, {n1 / n2}")
+print(listener.oplog)
 # print(tasks)
