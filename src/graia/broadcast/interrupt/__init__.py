@@ -1,4 +1,5 @@
 from asyncio import Future, get_running_loop
+import asyncio
 from typing import Optional, Type, Union
 
 from .. import Broadcast
@@ -25,7 +26,7 @@ class InterruptControl:
     def __init__(self, broadcast: Broadcast) -> None:
         self.broadcast = broadcast
 
-    async def wait(self, waiter: Waiter, priority: Optional[Union[int, Priority]] = None, **kwargs):
+    async def wait(self, waiter: Waiter, priority: Optional[Union[int, Priority]] = None, timeout: float = None, **kwargs):
         """生成一一次性使用的监听器并将其挂载, 该监听器用于获取特定类型的事件, 并根据设定对事件进行过滤;
         当获取到符合条件的对象时, 堵塞将被解除, 同时该方法返回从监听器得到的值.
 
@@ -47,6 +48,8 @@ class InterruptControl:
             listeners.add(listener)
 
         try:
+            if timeout:
+                return await asyncio.wait_for(future, timeout)
             return await future
         finally:  # 删除 Listener
             if not future.done():
