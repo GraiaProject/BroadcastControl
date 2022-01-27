@@ -16,7 +16,7 @@ T_Event = TypeVar("T_Event", bound=Dispatchable)
 
 
 class DispatcherInterface(Generic[T_Event]):
-    __slots__ = {"ctx", "broadcast", "dispatchers", "parameter_contexts", "local_storage", "current_path", "current_oplog"}
+    __slots__ = {"broadcast", "dispatchers", "parameter_contexts", "local_storage", "current_path", "current_oplog"}
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
 

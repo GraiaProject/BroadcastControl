@@ -71,7 +71,7 @@ class Broadcast:
         self.prelude_dispatchers = [self.decorator_interface]
         self.finale_dispatchers = []
 
-        @self.global_dispatchers.append
+        @self.prelude_dispatchers.append
         class BroadcastBuiltinDispatcher(BaseDispatcher):
             @staticmethod
             async def catch(interface: DispatcherInterface):
