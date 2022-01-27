@@ -79,7 +79,6 @@ class Broadcast:
                     return interface.broadcast
                 elif interface.annotation is DispatcherInterface:
                     return interface
-        
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(
@@ -140,7 +139,7 @@ class Broadcast:
             *(target.dispatchers if is_exectarget else []),
             *(target.namespace.injected_dispatchers if is_listener else []),
         ]
-        
+
         dii = DispatcherInterface(self, dispatchers)
         dii_token = dii.ctx.set(dii)
 

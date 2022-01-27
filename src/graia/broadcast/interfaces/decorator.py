@@ -18,6 +18,7 @@ class DecoratorInterface(BaseDispatcher):
     @property
     def dispatcher_interface(self) -> "DispatcherInterface":
         from .dispatcher import DispatcherInterface
+
         return DispatcherInterface.ctx.get()
 
     @property

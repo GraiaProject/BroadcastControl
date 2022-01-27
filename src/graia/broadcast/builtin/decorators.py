@@ -46,7 +46,8 @@ class OptionalParam(Decorator):
             return Force(
                 await interface.dispatcher_interface.lookup_param(
                     interface.dispatcher_interface.name,
-                    typing.get_origin(interface.dispatcher_interface.annotation) or interface.dispatcher_interface.annotation,
+                    typing.get_origin(interface.dispatcher_interface.annotation)
+                    or interface.dispatcher_interface.annotation,
                     self.origin,
                 )
             )

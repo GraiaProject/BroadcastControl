@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import (TYPE_CHECKING, Any, ClassVar, Dict, Generic, List,
+                    Optional, Tuple, TypeVar)
 
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import Dispatchable
