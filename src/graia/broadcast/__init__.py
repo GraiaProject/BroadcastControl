@@ -52,7 +52,8 @@ class Broadcast:
 
     debug_flag: bool
 
-    global_dispatchers: List["T_Dispatcher"]
+    prelude_dispatchers: List["T_Dispatcher"]
+    finale_dispatchers: List["T_Dispatcher"]
 
     def __init__(
         self,
@@ -67,7 +68,8 @@ class Broadcast:
         self.listeners = []
         self.event_ctx = Ctx("bcc_event_ctx")
         self.decorator_interface = DecoratorInterface()
-        self.global_dispatchers = [self.decorator_interface]
+        self.prelude_dispatchers = [self.decorator_interface]
+        self.finale_dispatchers = []
 
         @self.global_dispatchers.append
         class BroadcastBuiltinDispatcher(BaseDispatcher):
@@ -134,10 +136,11 @@ class Broadcast:
         parameter_compile_result = {}
 
         dispatchers = [  # type: ignore
-            *(self.global_dispatchers if use_global_dispatchers else []),
+            *(self.prelude_dispatchers if use_global_dispatchers else []),
             *(dispatchers if dispatchers else []),
             *(target.dispatchers if is_exectarget else []),
             *(target.namespace.injected_dispatchers if is_listener else []),
+            *(self.finale_dispatchers if use_global_dispatchers else []),
         ]
 
         dii = DispatcherInterface(self, dispatchers)
