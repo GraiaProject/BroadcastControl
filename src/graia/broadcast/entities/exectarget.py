@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List
+from typing import Callable, Dict, Hashable, List
 
 from ..typing import T_Dispatcher
 from .decorator import Decorator
@@ -9,7 +9,7 @@ class ExecTarget:
     dispatchers: List[T_Dispatcher]
     decorators: List[Decorator]
 
-    param_paths: Dict[str, List[T_Dispatcher]]
+    param_paths: Dict[Hashable, Dict[str, List[T_Dispatcher]]]
 
     def __init__(
         self,

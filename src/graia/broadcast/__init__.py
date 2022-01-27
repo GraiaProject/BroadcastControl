@@ -111,10 +111,15 @@ class Broadcast:
         use_global_dispatchers: bool = True,
     ):
         is_exectarget = is_listener = False
+        current_oplog = None
         if isinstance(target, Listener):
             is_exectarget = is_listener = True
+            current_oplog = target.oplog.setdefault(self.event_ctx.get().__class__, {})
+            # if it's a listener, the event should be set.
         elif isinstance(target, ExecTarget):
             is_exectarget = True
+            current_oplog = target.oplog.setdefault(..., {})
+            # also, Ellipsis is good.
 
         if is_listener:
             if target.namespace.disabled:  # type: ignore
@@ -143,7 +148,7 @@ class Broadcast:
 
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):  # type: ignore
-                    optimized_log = target.param_paths.setdefault(name, [])
+                    optimized_log = current_oplog.setdefault(name, [])
                     parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, optimized_log)
 
                 for hl_d in target.decorators:
