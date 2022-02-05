@@ -45,8 +45,6 @@ class DecoratorInterface(BaseDispatcher):
         if isinstance(interface.default, Decorator):
             decorator: Decorator = interface.default
             with ctx_dei_returnvalue.use(
-                await interface.lookup_param(interface.name, interface.annotation, None, [[], 0])
-                if not decorator.pre
-                else None
+                await interface.lookup_param(interface.name, interface.annotation, None) if not decorator.pre else None
             ):
                 return Force(await run_always_await_safely(decorator.target, self))

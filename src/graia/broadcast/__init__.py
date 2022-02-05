@@ -168,7 +168,7 @@ class Broadcast:
 
             else:
                 for name, annotation, default in argument_signature(target_callable):  # type: ignore
-                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default, [])
+                    parameter_compile_result[name] = await dii.lookup_param(name, annotation, default)
 
             for dispatcher in dispatchers:
                 i = getattr(dispatcher, "afterDispatch", None)

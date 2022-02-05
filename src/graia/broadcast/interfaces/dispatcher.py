@@ -1,5 +1,5 @@
-from typing import (TYPE_CHECKING, Any, ClassVar, Dict, Generic, List,
-                    Optional, Tuple, TypeVar)
+from typing import (TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Tuple,
+                    TypeVar)
 
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import Dispatchable
@@ -83,10 +83,11 @@ class DispatcherInterface(Generic[T_Event]):
                 if result is None:
                     continue
 
+                oplog.insert(0, dispatcher)
+
                 if result.__class__ is Force:
                     return result.target
 
-                oplog.insert(0, dispatcher)
                 return result
             else:
                 raise RequirementCrashed(
