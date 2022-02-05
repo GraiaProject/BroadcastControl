@@ -75,7 +75,7 @@ class DispatcherInterface(Generic[T_Event]):
                     if result.__class__ is Force:
                         return result.target
                     return result
-            oplog.clear()
+                oplog.clear()
             self.current_path.iterable = self.dispatchers
             for dispatcher in self.current_path:
                 result = await dispatcher.catch(self)
@@ -86,7 +86,7 @@ class DispatcherInterface(Generic[T_Event]):
                 if result.__class__ is Force:
                     return result.target
 
-                oplog.append(dispatcher)
+                oplog.insert(0, dispatcher)
                 return result
             else:
                 raise RequirementCrashed(

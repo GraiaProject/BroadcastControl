@@ -28,10 +28,6 @@ class TestEvent(Dispatchable):
             if interface.annotation is str:
                 return "1"
 
-        @staticmethod
-        async def beforeExecution(interface: "DispatcherInterface"):
-            pass
-
 
 @Waiter.create_using_function([TestEvent])
 def waiter(event: TestEvent):
