@@ -13,15 +13,20 @@ from .entities.exectarget import ExecTarget
 from .entities.listener import Listener
 from .entities.namespace import Namespace
 from .entities.signatures import Force, RemoveMe
-from .exceptions import (DisabledNamespace, ExecutionStop, ExistedNamespace,
-                         InvalidEventName, PropagationCancelled,
-                         RegisteredEventListener, RequirementCrashed,
-                         UnexistedNamespace)
+from .exceptions import (
+    DisabledNamespace,
+    ExecutionStop,
+    ExistedNamespace,
+    InvalidEventName,
+    PropagationCancelled,
+    RegisteredEventListener,
+    RequirementCrashed,
+    UnexistedNamespace,
+)
 from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
-from .utilles import (Ctx, argument_signature, dispatcher_mixin_handler,
-                      group_dict, run_always_await_safely)
+from .utilles import Ctx, argument_signature, dispatcher_mixin_handler, group_dict, run_always_await_safely
 
 
 class DebugList(UserList):
@@ -153,7 +158,7 @@ class Broadcast:
                     await run_always_await_safely(i, dii)  # type: ignore
 
             if is_exectarget:
-                for name, annotation, default in argument_signature(target_callable):  # type: ignore
+                for name, annotation, default in argument_signature(target_callable):
                     dii.current_oplog = current_oplog.setdefault(name, [])
                     parameter_compile_result[name] = await dii.lookup_param(name, annotation, default)
 
@@ -167,13 +172,13 @@ class Broadcast:
                     )
 
             else:
-                for name, annotation, default in argument_signature(target_callable):  # type: ignore
+                for name, annotation, default in argument_signature(target_callable):
                     parameter_compile_result[name] = await dii.lookup_param(name, annotation, default)
 
             for dispatcher in dispatchers:
                 i = getattr(dispatcher, "afterDispatch", None)
                 if i:
-                    await run_always_await_safely(i, dii, None, None)  # type: ignore
+                    await run_always_await_safely(i, dii, None, None)
 
             result = await run_always_await_safely(target_callable, **parameter_compile_result)
         except (ExecutionStop, PropagationCancelled):

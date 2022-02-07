@@ -113,13 +113,13 @@ class NestableIterable(Iterable[T]):
 
     def __init__(self, iterable: List[T]) -> None:
         self.iterable = iterable
-        self.index_stack = [0]
+        self.index_stack = [-1]
 
     def __iter__(self):
         index = self.index_stack[-1]
         self.index_stack.append(index)
 
-        start_offset = index + index and 1
+        start_offset = index + 1
         try:
             for self.index_stack[-1], content in enumerate(
                 self.iterable[start_offset:],

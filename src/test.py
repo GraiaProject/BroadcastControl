@@ -20,18 +20,23 @@ from graia.broadcast.interrupt import InterruptControl
 from graia.broadcast.interrupt.waiter import Waiter
 from graia.broadcast.utilles import dispatcher_mixin_handler
 
+import sys
+
+
+class TestDispatcher(BaseDispatcher):
+    @staticmethod
+    async def catch(interface: DispatcherInterface):
+        if interface.name == "ster":
+            return 1
+
 
 class TestEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
+        mixin = [TestDispatcher]
         @staticmethod
         async def catch(interface: "DispatcherInterface"):
-            if interface.annotation is str:
-                return "1"
-
-
-@Waiter.create_using_function([TestEvent])
-def waiter(event: TestEvent):
-    return 1
+            if interface.name == "ster":
+                return int(await interface.lookup_param("ster", Any, None))
 
 
 event = TestEvent()
@@ -44,11 +49,11 @@ broadcast = Broadcast(
 
 
 @broadcast.receiver(TestEvent)
-async def r(r: str, d: str, c: str):
-    pass
+async def r(ster):
+    print(ster, type(ster))
 
 
-count = 100000
+count = 3
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -61,17 +66,18 @@ for _ in range(count):
     # tasks.append(
     #    loop.create_task(broadcast.Executor(listener, event)))
     tasks.append(broadcast.Executor(listener, dispatchers=mixins.copy()))
+print(mixins)
 
 s = time.time()
 # print(s)
 # cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
-loop.run_until_complete(asyncio.gather(*tasks))
+#loop.run_until_complete(asyncio.gather(*tasks))
 
 e = time.time()
 n1 = e - s
 
 s2 = time.time()
-loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
+#loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
 e2 = time.time()
 n2 = e2 - s2
 
