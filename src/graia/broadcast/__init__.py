@@ -159,8 +159,11 @@ class Broadcast:
 
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):
-                    dii.current_oplog = current_oplog.setdefault(name, [])
+                    origin = current_oplog.get(name)
+                    dii.current_oplog = origin.copy() if origin else []
                     parameter_compile_result[name] = await dii.lookup_param(name, annotation, default)
+                    if name not in dii.success:
+                        current_oplog[name] = dii.current_oplog
 
                 dii.current_oplog = []
                 for hl_d in target.decorators:

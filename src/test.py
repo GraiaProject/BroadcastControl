@@ -32,12 +32,17 @@ class TestDispatcher(BaseDispatcher):
 
 class TestEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
-        mixin = [TestDispatcher]
         @staticmethod
         async def catch(interface: "DispatcherInterface"):
             if interface.name == "ster":
-                return int(await interface.lookup_param("ster", Any, None))
+                return "1"
 
+class AsInt(Decorator):
+    o: int = 0
+
+    async def target(self, interface: "DecoratorInterface"):
+        self.o += 1
+        return int(interface.return_value)
 
 event = TestEvent()
 loop = asyncio.get_event_loop()
@@ -47,13 +52,13 @@ broadcast = Broadcast(
     debug_flag=False,
 )
 
-
+p = AsInt()
 @broadcast.receiver(TestEvent)
-async def r(ster):
-    print(ster, type(ster))
+async def r(ster = p):
+    pass
 
 
-count = 3
+count = 100000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
@@ -66,18 +71,17 @@ for _ in range(count):
     # tasks.append(
     #    loop.create_task(broadcast.Executor(listener, event)))
     tasks.append(broadcast.Executor(listener, dispatchers=mixins.copy()))
-print(mixins)
 
 s = time.time()
 # print(s)
 # cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
-#loop.run_until_complete(asyncio.gather(*tasks))
+loop.run_until_complete(asyncio.gather(*tasks))
 
 e = time.time()
 n1 = e - s
 
 s2 = time.time()
-#loop.run_until_complete(asyncio.gather(*[r(1, 2, 3) for _ in range(count)]))
+#loop.run_until_complete(asyncio.gather(*[r(1) for _ in range(count)]))
 e2 = time.time()
 n2 = e2 - s2
 
@@ -86,4 +90,5 @@ n2 = e2 - s2
 print(n1, count, n2, n1 / n2)
 print(f"used {n1}, {count/n1}o/s, {n1 / n2}")
 print(listener.oplog)
+print(p.o)
 # print(tasks)

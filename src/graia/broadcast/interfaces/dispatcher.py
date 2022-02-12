@@ -1,4 +1,4 @@
-from typing import (TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Tuple,
+from typing import (TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Set, Tuple,
                     TypeVar)
 
 from ..entities.dispatcher import BaseDispatcher
@@ -16,7 +16,7 @@ T_Event = TypeVar("T_Event", bound=Dispatchable)
 
 
 class DispatcherInterface(Generic[T_Event]):
-    __slots__ = {"broadcast", "dispatchers", "parameter_contexts", "local_storage", "current_path", "current_oplog"}
+    __slots__ = {"broadcast", "dispatchers", "parameter_contexts", "local_storage", "current_path", "current_oplog", "success"}
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
 
@@ -27,6 +27,7 @@ class DispatcherInterface(Generic[T_Event]):
     current_oplog: List[T_Dispatcher]
 
     parameter_contexts: List[Tuple[str, Any, Any]]
+    success: Set[str]
 
     def __init__(self, broadcast_instance: "Broadcast", dispatchers: List[T_Dispatcher]) -> None:
         self.broadcast = broadcast_instance
@@ -35,6 +36,7 @@ class DispatcherInterface(Generic[T_Event]):
         self.local_storage = {}
         self.current_path = NestableIterable([])
         self.current_oplog = []
+        self.success = set()
 
     @property
     def name(self) -> str:
@@ -72,6 +74,7 @@ class DispatcherInterface(Generic[T_Event]):
                     result = await dispatcher.catch(self)
                     if result is None:  # 不可靠.
                         break
+                    self.success.add(name)
                     if result.__class__ is Force:
                         return result.target
                     return result
