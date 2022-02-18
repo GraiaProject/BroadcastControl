@@ -106,8 +106,11 @@ class Broadcast:
         event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
         with self.event_ctx.use(event):
             for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
-                coros = [self.Executor(target=i, dispatchers=event_dispatcher_mixin) for i in current_group]
-                done_tasks, _ = await asyncio.wait(coros)
+                tasks = [
+                    asyncio.create_task(self.Executor(target=i, dispatchers=event_dispatcher_mixin))
+                    for i in current_group
+                ]
+                done_tasks, _ = await asyncio.wait(tasks)
                 for task in done_tasks:
                     if task.exception().__class__ is PropagationCancelled:
                         return
