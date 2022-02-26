@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import sys
 import traceback
 from collections import UserList
@@ -26,7 +27,14 @@ from .exceptions import (
 from .interfaces.decorator import DecoratorInterface
 from .interfaces.dispatcher import DispatcherInterface
 from .typing import T_Dispatcher
-from .utilles import Ctx, argument_signature, dispatcher_mixin_handler, group_dict, run_always_await_safely
+from .utilles import (
+    CoverDispatcher,
+    Ctx,
+    argument_signature,
+    dispatcher_mixin_handler,
+    group_dict,
+    run_always_await_safely,
+)
 
 
 class DebugList(UserList):
@@ -63,10 +71,10 @@ class Broadcast:
     def __init__(
         self,
         *,
-        loop: asyncio.AbstractEventLoop = None,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
         debug_flag: bool = False,
     ):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or asyncio.new_event_loop()
         self.default_namespace = Namespace(name="default", default=True)
         self.debug_flag = debug_flag
         self.namespaces = []
@@ -101,9 +109,16 @@ class Broadcast:
             )
         )
 
-    async def layered_scheduler(self, listener_generator: Iterable[Listener], event: Dispatchable):
+    async def layered_scheduler(
+        self,
+        listener_generator: Iterable[Listener],
+        event: Dispatchable,
+        addition_dispatchers: Optional[List["T_Dispatcher"]] = None,
+    ):
         grouped: Dict[int, List[Listener]] = group_dict(listener_generator, lambda x: x.priority)
         event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
+        if addition_dispatchers:
+            event_dispatcher_mixin = event_dispatcher_mixin + addition_dispatchers
         with self.event_ctx.use(event):
             for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
                 tasks = [
@@ -118,7 +133,7 @@ class Broadcast:
     async def Executor(
         self,
         target: Union[Callable, ExecTarget],
-        dispatchers: List[T_Dispatcher] = None,
+        dispatchers: Optional[List[T_Dispatcher]] = None,
         post_exception_event: bool = True,
         print_exception: bool = True,
         use_global_dispatchers: bool = True,
@@ -143,11 +158,11 @@ class Broadcast:
         target_callable = target.callable if is_exectarget else target  # type: ignore
         parameter_compile_result = {}
 
-        dispatchers = [  # type: ignore
+        dispatchers = [
             *(self.prelude_dispatchers if use_global_dispatchers else []),
             *(dispatchers if dispatchers else []),
             *(target.dispatchers if is_exectarget else []),
-            *(target.namespace.injected_dispatchers if is_listener else []),
+            *(target.namespace.injected_dispatchers if is_listener else []),  # type: ignore
             *(self.finale_dispatchers if use_global_dispatchers else []),
         ]
 
@@ -162,11 +177,11 @@ class Broadcast:
 
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):
-                    origin = current_oplog.get(name)
+                    origin = current_oplog.get(name)  # type: ignore
                     dii.current_oplog = origin.copy() if origin else []
                     parameter_compile_result[name] = await dii.lookup_param(name, annotation, default)
                     if name not in dii.success:
-                        current_oplog[name] = dii.current_oplog
+                        current_oplog[name] = dii.current_oplog  # type: ignore
 
                 dii.current_oplog = []
                 for hl_d in target.decorators:
@@ -216,11 +231,14 @@ class Broadcast:
                 self.listeners.remove(target)
         return result
 
-    def postEvent(self, event: Dispatchable):
-        self.loop.create_task(
+    def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
+        return self.loop.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
+                addition_dispatchers=[CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)]
+                if upper_event
+                else [],
             )
         )
 
@@ -305,9 +323,9 @@ class Broadcast:
         self,
         event: Union[str, Type[Dispatchable]],
         priority: int = 16,
-        dispatchers: List[T_Dispatcher] = None,
-        namespace: Namespace = None,
-        decorators: List[Decorator] = None,
+        dispatchers: Optional[List[T_Dispatcher]] = None,
+        namespace: Optional[Namespace] = None,
+        decorators: Optional[List[Decorator]] = None,
     ):
         if isinstance(event, str):
             _name = event
@@ -323,10 +341,10 @@ class Broadcast:
                     Listener(
                         callable=callable_target,
                         namespace=namespace or self.getDefaultNamespace(),
-                        inline_dispatchers=dispatchers,
+                        inline_dispatchers=dispatchers or [],
                         priority=priority,
                         listening_events=[event],  # type: ignore
-                        decorators=decorators,
+                        decorators=decorators or [],
                     )
                 )
             else:

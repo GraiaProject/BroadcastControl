@@ -2,12 +2,28 @@ import inspect
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from functools import lru_cache
-from typing import (TYPE_CHECKING, Any, Awaitable, Callable, Generic, Iterable,
-                    List, Type, TypeVar, Union)
+from types import TracebackType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+)
+
 
 from .entities.dispatcher import BaseDispatcher
 
 if TYPE_CHECKING:
+    from graia.broadcast.entities.event import Dispatchable
+    from graia.broadcast.interfaces.dispatcher import DispatcherInterface
     from graia.broadcast.typing import T_Dispatcher
 
 
@@ -128,3 +144,62 @@ class NestableIterable(Iterable[T]):
                 yield content
         finally:
             self.index_stack.pop()
+
+
+class _CoveredObjectMeta(type):
+    if TYPE_CHECKING:
+        __origin__: Any
+
+    def __instancecheck__(self, __instance: Any) -> bool:
+        return isinstance(__instance, self.__origin__.__class__)
+
+
+class CoveredObject(metaclass=_CoveredObjectMeta):
+    def __init__(self, obj: Any, cover_params: Dict[str, Any]):
+        for k, v in cover_params.items():
+            if k.startswith("__") and k.endswith("__"):
+                raise TypeError("you should not cover any magic method.")
+            setattr(self, k, v)
+        self.__origin__ = obj
+        self.__covered__ = cover_params
+
+    def __getattribute__(self, key: str):
+        if key == "__origin__" or key == "__covered__":
+            return super().__getattribute__(key)
+        covered = super().__getattribute__("__covered__")
+        if key in covered:
+            return covered[key]
+        origin = super().__getattribute__("__origin__")
+        return getattr(origin, key)
+
+    def __call__(self, *args, **kwargs):
+        origin = super().__getattribute__("__origin__")
+        return origin(*args, **kwargs)
+
+
+class CoverDispatcher(BaseDispatcher):
+    origin: "T_Dispatcher"
+    event: "Dispatchable"
+
+    def __init__(self, origin: "T_Dispatcher", event: "Dispatchable") -> None:
+        self.origin = origin
+        self.event = event
+
+    async def beforeExecution(self, interface: "DispatcherInterface"):
+        if self.origin.beforeExecution:
+            return await self.origin.beforeExecution(CoveredObject(interface, {"event": self.event}))  # type: ignore
+
+    async def catch(self, interface: "DispatcherInterface"):
+        return await self.origin.catch(CoveredObject(interface, {"event": self.event}))  # type: ignore
+
+    async def afterDispatch(
+        self, interface: "DispatcherInterface", exception: Optional[Exception], tb: Optional[TracebackType]
+    ):
+        if self.origin.afterDispatch:
+            return await self.origin.afterDispatch(CoveredObject(interface, {"event": self.event}), exception, tb)  # type: ignore
+
+    async def afterExecution(
+        self, interface: "DispatcherInterface", exception: Optional[Exception], tb: Optional[TracebackType]
+    ):
+        if self.origin.afterExecution:
+            return await self.origin.afterExecution(CoveredObject(interface, {"event": self.event}), exception, tb)  # type: ignore
