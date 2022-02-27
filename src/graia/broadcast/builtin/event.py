@@ -17,7 +17,7 @@ class ExceptionThrowed(Dispatchable):
 
     class Dispatcher(BaseDispatcher):
         @staticmethod
-        def catch(interface: "DispatcherInterface['ExceptionThrowed']"):
+        async def catch(interface: "DispatcherInterface['ExceptionThrowed']"):
             if interface.annotation is interface.event.exception.__class__:
                 return interface.event.exception
             if interface.name == "event":

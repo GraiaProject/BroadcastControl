@@ -54,7 +54,7 @@ broadcast = Broadcast(
 
 p = AsInt()
 @broadcast.receiver(TestEvent)
-async def r(ster = p):
+async def r(ster):
     pass
 
 
@@ -87,8 +87,8 @@ n2 = e2 - s2
 
 
 # loop.run_until_complete(asyncio.sleep(0.1))
-print(n1, count, n2, n1 / n2)
-print(f"used {n1}, {count/n1}o/s, {n1 / n2}")
+print(n1, count, n2)
+print(f"used {n1}, {count/n1}o/s,")
 print(listener.oplog)
 print(p.o)
 # print(tasks)
