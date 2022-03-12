@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, List, Type
+from typing import Any, List, Optional, Type
 
 from ..entities.decorator import Decorator
 from ..entities.event import Dispatchable
@@ -17,8 +17,8 @@ class Waiter(metaclass=ABCMeta):
     def create(
         cls,
         listening_events: List[Type[Dispatchable]],
-        using_dispatchers: List[T_Dispatcher] = None,
-        using_decorators: List[Decorator] = None,
+        using_dispatchers: Optional[List[T_Dispatcher] ] = None,
+        using_decorators: Optional[List[Decorator] ] = None,
         priority: int = 15,  # 默认情况下都是需要高于默认 16 的监听吧...
         block_propagation: bool = False,
     ) -> Type["Waiter"]:
@@ -45,8 +45,8 @@ class Waiter(metaclass=ABCMeta):
     def create_using_function(
         cls,
         listening_events: List[Type[Dispatchable]],
-        using_dispatchers: List[T_Dispatcher] = None,
-        using_decorators: List[Decorator] = None,
+        using_dispatchers: Optional[List[T_Dispatcher] ] = None,
+        using_decorators: Optional[List[Decorator] ] = None,
         priority: int = 15,  # 默认情况下都是需要高于默认 16 的监听吧...
         block_propagation: bool = False,
     ):
