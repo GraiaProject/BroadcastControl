@@ -1,8 +1,6 @@
 import asyncio
-import copy
 import sys
 import traceback
-from collections import UserList
 from typing import Callable, Dict, Iterable, List, Optional, Type, Union
 
 from graia.broadcast.entities.dispatcher import BaseDispatcher
@@ -35,20 +33,6 @@ from .utilles import (
     group_dict,
     run_always_await_safely,
 )
-
-
-class DebugList(UserList):
-    def extend(self, item) -> None:
-        print(item)
-        return super().extend(item)
-
-    def append(self, item) -> None:
-        print(item)
-        return super().append(item)
-
-    def insert(self, i: int, item) -> None:
-        print(i, item)
-        return super().insert(i, item)
 
 
 class Broadcast:
@@ -236,7 +220,9 @@ class Broadcast:
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
-                addition_dispatchers=[CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)]
+                addition_dispatchers=[
+                    CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)
+                ]
                 if upper_event
                 else [],
             )

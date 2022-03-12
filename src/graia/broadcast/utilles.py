@@ -1,4 +1,5 @@
 import inspect
+from collections import UserList
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from functools import lru_cache
@@ -17,7 +18,6 @@ from typing import (
     TypeVar,
     Union,
 )
-
 
 from .entities.dispatcher import BaseDispatcher
 
@@ -69,6 +69,20 @@ class Ctx(Generic[T]):
 def printer(value: Any):
     print(value)
     return value
+
+
+class DebugList(UserList):
+    def extend(self, item) -> None:
+        print(item)
+        return super().extend(item)
+
+    def append(self, item) -> None:
+        print(item)
+        return super().append(item)
+
+    def insert(self, i: int, item) -> None:
+        print(i, item)
+        return super().insert(i, item)
 
 
 def group_dict(iterable: Iterable, key_callable: Callable[[Any], Any]):
