@@ -1,10 +1,10 @@
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 
 class ObjectContainer:
     target: Any
 
-    def __init__(self, content: Union["ObjectContainer", Any] = None):
+    def __init__(self, content: Optional[Union["ObjectContainer", Any] ] = None):
         if content.__class__ is self.__class__:
             content = content.target  # type: ignore
         self.target = content

@@ -1,4 +1,4 @@
-from typing import Callable, List, Type
+from typing import Callable, List, Optional, Type
 
 from ..typing import T_Dispatcher
 from .decorator import Decorator
@@ -17,8 +17,8 @@ class Listener(ExecTarget):
         callable: Callable,
         namespace: Namespace,
         listening_events: List[Type[Dispatchable]],
-        inline_dispatchers: List[T_Dispatcher] = None,
-        decorators: List[Decorator] = None,
+        inline_dispatchers: Optional[List[T_Dispatcher] ] = None,
+        decorators: Optional[List[Decorator] ] = None,
         priority: int = 16,
     ) -> None:
         super().__init__(callable, inline_dispatchers, decorators)

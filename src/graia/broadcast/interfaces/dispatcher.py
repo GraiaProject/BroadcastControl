@@ -88,7 +88,7 @@ class DispatcherInterface(Generic[T_Event]):
             if oplog:
                 self.current_path.iterable = oplog
                 for dispatcher in self.current_path:
-                    result = await dispatcher.catch(self)
+                    result = await dispatcher.catch(self)  # type: ignore
                     if result is None:  # 不可靠.
                         break
                     self.success.add(name)
@@ -98,7 +98,7 @@ class DispatcherInterface(Generic[T_Event]):
                 oplog.clear()
             self.current_path.iterable = self.dispatchers
             for dispatcher in self.current_path:
-                result = await dispatcher.catch(self)
+                result = await dispatcher.catch(self)  # type: ignore
 
                 if result is None:
                     continue
@@ -123,7 +123,7 @@ class DispatcherInterface(Generic[T_Event]):
         self.parameter_contexts.append((name, annotation, default))
 
         try:
-            result = await dispatcher.catch(self)
+            result = await dispatcher.catch(self)  # type: ignore
             if result.__class__ is Force:
                 return result.target
 

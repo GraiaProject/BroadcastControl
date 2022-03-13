@@ -41,7 +41,7 @@ async def run_always_await_safely(callable, *args, **kwargs):
 
 
 T = TypeVar("T")
-D = TypeVar("D")
+D = TypeVar("D", type(None), Any)
 
 
 class Ctx(Generic[T]):
@@ -50,7 +50,7 @@ class Ctx(Generic[T]):
     def __init__(self, name: str) -> None:
         self.current_ctx = ContextVar(name)
 
-    def get(self, default: Union[T, D] = None) -> Union[T, D]:
+    def get(self, default: Optional[Union[T, D]] = None) -> Union[T, D]:
         return self.current_ctx.get(default)
 
     def set(self, value: T):
