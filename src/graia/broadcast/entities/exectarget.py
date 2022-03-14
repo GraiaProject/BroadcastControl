@@ -14,8 +14,8 @@ class ExecTarget:
     def __init__(
         self,
         callable: Callable,
-        inline_dispatchers: Optional[List[T_Dispatcher] ] = None,
-        decorators: Optional[List[Decorator] ] = None,
+        inline_dispatchers: Optional[List[T_Dispatcher]] = None,
+        decorators: Optional[List[Decorator]] = None,
     ):
         self.callable = callable
         self.dispatchers = inline_dispatchers or []
