@@ -1,4 +1,5 @@
 import asyncio
+
 # import objgraph
 # import copy
 import functools
@@ -37,12 +38,14 @@ class TestEvent(Dispatchable):
             if interface.name == "ster":
                 return "1"
 
+
 class AsInt(Decorator):
     o: int = 0
 
     async def target(self, interface: "DecoratorInterface"):
         self.o += 1
         return int(interface.return_value)
+
 
 event = TestEvent()
 loop = asyncio.get_event_loop()
@@ -53,6 +56,8 @@ broadcast = Broadcast(
 )
 
 p = AsInt()
+
+
 @broadcast.receiver(TestEvent)
 async def r(ster):
     pass
@@ -81,7 +86,7 @@ e = time.time()
 n1 = e - s
 
 s2 = time.time()
-#loop.run_until_complete(asyncio.gather(*[r(1) for _ in range(count)]))
+# loop.run_until_complete(asyncio.gather(*[r(1) for _ in range(count)]))
 e2 = time.time()
 n2 = e2 - s2
 

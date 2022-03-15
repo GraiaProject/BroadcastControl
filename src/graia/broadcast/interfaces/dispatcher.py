@@ -1,5 +1,4 @@
-from typing import (TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Set, Tuple,
-                    TypeVar)
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Set, Tuple, TypeVar
 
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import Dispatchable
@@ -16,7 +15,15 @@ T_Event = TypeVar("T_Event", bound=Dispatchable)
 
 
 class DispatcherInterface(Generic[T_Event]):
-    __slots__ = {"broadcast", "dispatchers", "parameter_contexts", "local_storage", "current_path", "current_oplog", "success"}
+    __slots__ = {
+        "broadcast",
+        "dispatchers",
+        "parameter_contexts",
+        "local_storage",
+        "current_path",
+        "current_oplog",
+        "success",
+    }
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
 

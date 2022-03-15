@@ -236,7 +236,9 @@ class Broadcast:
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
-                addition_dispatchers=[CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)]
+                addition_dispatchers=[
+                    CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)
+                ]
                 if upper_event
                 else [],
             )
