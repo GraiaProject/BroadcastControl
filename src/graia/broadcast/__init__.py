@@ -42,7 +42,6 @@ class Broadcast:
     namespaces: List[Namespace]
     listeners: List[Listener]
 
-    dispatcher_interface: DispatcherInterface
     decorator_interface: DecoratorInterface
 
     event_ctx: Ctx[Dispatchable]

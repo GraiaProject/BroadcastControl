@@ -47,6 +47,4 @@ async def test_get_exc():
 
     await bcc.postEvent(TestEvent())
 
-    await asyncio.sleep(0.1)  # wait for exception to be handled
-
     assert len(executed) == 3

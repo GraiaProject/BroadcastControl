@@ -1,5 +1,5 @@
 import typing
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 from ..entities.decorator import Decorator
 from ..entities.exectarget import ExecTarget
@@ -42,12 +42,15 @@ class OptionalParam(Decorator):
         self.origin = origin
 
     async def target(self, interface: DecoratorInterface) -> Optional[Any]:
+        annotation = interface.annotation
+        if typing.get_origin(annotation) is Union:
+            annotation = Union[tuple(x for x in typing.get_args(annotation) if x not in (None, type(None)))]  # type: ignore
         try:
             return Force(
-                await interface.dispatcher_interface.lookup_param(
+                await interface.dispatcher_interface.lookup_by_directly(
+                    interface,
                     interface.dispatcher_interface.name,
-                    typing.get_origin(interface.dispatcher_interface.annotation)
-                    or interface.dispatcher_interface.annotation,
+                    annotation,
                     self.origin,
                 )
             )
