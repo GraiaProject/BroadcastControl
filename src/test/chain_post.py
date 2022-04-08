@@ -8,6 +8,8 @@ import sys
 import time
 from typing import Any, Generator, Tuple, Union
 
+import pytest
+
 from graia.broadcast import Broadcast
 from graia.broadcast.builtin.decorators import Depend
 from graia.broadcast.entities.decorator import Decorator
@@ -37,7 +39,7 @@ class TestEvent1(Dispatchable):
             if interface.name == "ster":
                 return "1"
             elif interface.name == "ster1":
-                return 54352345
+                return "res_ster_1"
 
 
 class TestEvent2(Dispatchable):
@@ -45,26 +47,33 @@ class TestEvent2(Dispatchable):
         @staticmethod
         async def catch(interface: "DispatcherInterface"):
             if interface.name == "ster":
-                return 6546
+                return "res_ster"
 
 
-event = TestEvent1()
-loop = asyncio.new_event_loop()
+@pytest.mark.asyncio
+async def test_():
+    event = TestEvent1()
 
-broadcast = Broadcast(
-    loop=loop,
-    debug_flag=False,
-)
+    broadcast = Broadcast(
+        loop=asyncio.get_running_loop(),
+        debug_flag=False,
+    )
 
+    finish = []
 
-@broadcast.receiver(TestEvent1)
-async def s(e: TestEvent1):
-    broadcast.postEvent(TestEvent2(), e)
+    @broadcast.receiver(TestEvent1)
+    async def s(e: TestEvent1, ster, ster1):
+        assert ster == "1"
+        assert ster1 == "res_ster_1"
+        broadcast.postEvent(TestEvent2(), e)
 
+    @broadcast.receiver(TestEvent2)
+    async def t(e: TestEvent2, ster, ster1):
+        assert isinstance(e, TestEvent2)
+        assert ster == "res_ster"
+        assert ster1 == "res_ster_1"
+        finish.append(1)
 
-@broadcast.receiver(TestEvent2)
-async def t(e: TestEvent2, ster, ster1):
-    print(e, ster, ster1)
+    await broadcast.postEvent(event)
 
-
-loop.run_until_complete(asyncio.wait([broadcast.postEvent(event)]))
+    assert finish

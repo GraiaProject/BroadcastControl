@@ -1,8 +1,6 @@
 import asyncio
-import copy
 import sys
 import traceback
-from collections import UserList
 from typing import Callable, Dict, Iterable, List, Optional, Type, Union
 
 from graia.broadcast.entities.dispatcher import BaseDispatcher
@@ -37,20 +35,6 @@ from .utilles import (
 )
 
 
-class DebugList(UserList):
-    def extend(self, item) -> None:
-        print(item)
-        return super().extend(item)
-
-    def append(self, item) -> None:
-        print(item)
-        return super().append(item)
-
-    def insert(self, i: int, item) -> None:
-        print(i, item)
-        return super().insert(i, item)
-
-
 class Broadcast:
     loop: asyncio.AbstractEventLoop
 
@@ -58,7 +42,6 @@ class Broadcast:
     namespaces: List[Namespace]
     listeners: List[Listener]
 
-    dispatcher_interface: DispatcherInterface
     decorator_interface: DecoratorInterface
 
     event_ctx: Ctx[Dispatchable]

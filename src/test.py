@@ -4,6 +4,7 @@ import asyncio
 # import copy
 import functools
 import random
+import sys
 import time
 from typing import Any, Generator, Tuple, Union
 
@@ -20,8 +21,6 @@ from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 from graia.broadcast.interrupt import InterruptControl
 from graia.broadcast.interrupt.waiter import Waiter
 from graia.broadcast.utilles import dispatcher_mixin_handler
-
-import sys
 
 
 class TestDispatcher(BaseDispatcher):
