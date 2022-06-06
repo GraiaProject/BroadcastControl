@@ -8,14 +8,28 @@ from typing import (
     Set,
     Tuple,
     TypeVar,
+    Union,
 )
 
-from ..entities.dispatcher import BaseDispatcher
 from ..entities.event import Dispatchable
 from ..entities.signatures import Force
-from ..exceptions import RequirementCrashed
+from ..exceptions import ExecutionStop, RequirementCrashed
 from ..typing import T_Dispatcher
 from ..utilles import Ctx, NestableIterable
+
+try:
+    from typing import get_args, get_origin
+except ImportError:
+    from typing_extensions import get_args, get_origin
+
+try:
+    from typing import Annotated
+
+    from typing_extensions import Annotated as AlterAnnotated
+except ImportError:
+    from typing_extensions import Annotated
+
+    AlterAnnotated = None
 
 if TYPE_CHECKING:
     from .. import Broadcast
@@ -71,9 +85,41 @@ class DispatcherInterface(Generic[T_Event]):
     def event(self) -> T_Event:
         return self.broadcast.event_ctx.get()  # type: ignore
 
+    @property
+    def is_optional(self) -> bool:
+        anno = self.annotation
+        return get_origin(anno) is Union and None in get_args(anno)
+
+    @property
+    def is_annotated(self) -> bool:
+        return get_origin(self.annotation) in {Annotated, AlterAnnotated}
+
+    @property
+    def annotated_origin(self) -> Any:
+        if not self.is_annotated:
+            raise TypeError("required a annotated annotation")
+        return get_args(self.annotation)[0]
+
+    @property
+    def annotated_metadata(self) -> tuple:
+        if not self.is_annotated:
+            raise TypeError("required a annotated annotation")
+        return get_args(self.annotation)[1:]
+
     def inject_execution_raw(self, *dispatchers: T_Dispatcher):
         for dispatcher in dispatchers:
             self.dispatchers.insert(0, dispatcher)
+
+    def crash(self):
+        raise RequirementCrashed(
+            "the dispatching requirement crashed: ",
+            self.name,
+            self.annotation,
+            self.default,
+        )
+
+    def stop(self):
+        raise ExecutionStop
 
     async def lookup_param(
         self,
@@ -109,13 +155,12 @@ class DispatcherInterface(Generic[T_Event]):
                     return result.target
 
                 return result
-            else:
-                raise RequirementCrashed(
-                    "the dispatching requirement crashed: ",
-                    self.name,
-                    self.annotation,
-                    self.default,
-                )
+            raise RequirementCrashed(
+                "the dispatching requirement crashed: ",
+                self.name,
+                self.annotation,
+                self.default,
+            )
         finally:
             self.parameter_contexts.pop()
 

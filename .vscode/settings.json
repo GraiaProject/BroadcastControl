@@ -1,14 +1,10 @@
 {
-    "python.linting.enabled": false,
-    "python.linting.pylintEnabled": true,
-    "python.linting.banditEnabled": false,
-    "maven.view": "hierarchical",
-    "python.formatting.provider": "black",
-    "python.pythonPath": "C:\\Users\\Chenw\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\graia-broadcast-kkIP7ti5-py3.8",
-    "jupyter.jupyterServerType": "local",
-    "cSpell.words": [
-        "oplog",
-        "Unexisted",
-        "utilles"
-    ]
+  "python.linting.enabled": false,
+  "python.linting.pylintEnabled": true,
+  "python.linting.banditEnabled": false,
+  "maven.view": "hierarchical",
+  "python.formatting.provider": "black",
+  "python.pythonPath": "C:\\Users\\Chenw\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\graia-broadcast-kkIP7ti5-py3.8",
+  "jupyter.jupyterServerType": "local",
+  "cSpell.words": ["Dispatchable", "oplog", "Unexisted", "utilles"]
 }

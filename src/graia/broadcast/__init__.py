@@ -1,8 +1,10 @@
 import asyncio
 import sys
 import traceback
+from contextlib import asynccontextmanager
 from typing import Callable, Dict, Iterable, List, Optional, Type, Union
 
+from graia.broadcast.builtin.derive import DeriveDispatcher
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 
 from .builtin.event import ExceptionThrowed
@@ -64,7 +66,7 @@ class Broadcast:
         self.listeners = []
         self.event_ctx = Ctx("bcc_event_ctx")
         self.decorator_interface = DecoratorInterface()
-        self.prelude_dispatchers = [self.decorator_interface]
+        self.prelude_dispatchers = [self.decorator_interface, DeriveDispatcher()]
         self.finale_dispatchers = []
 
         @self.prelude_dispatchers.append
@@ -132,11 +134,8 @@ class Broadcast:
             current_oplog = target.oplog.setdefault(..., {})
             # also, Ellipsis is good.
 
-        if is_listener:
-            if target.namespace.disabled:  # type: ignore
-                raise DisabledNamespace(
-                    "caught a disabled namespace: {0}".format(target.namespace.name)  # type: ignore
-                )
+        if is_listener and target.namespace.disabled:  # type: ignore
+            raise DisabledNamespace("caught a disabled namespace: {0}".format(target.namespace.name))  # type: ignore
 
         target_callable = target.callable if is_exectarget else target  # type: ignore
         parameter_compile_result = {}
@@ -214,6 +213,49 @@ class Broadcast:
                 self.listeners.remove(target)
         return result
 
+    @asynccontextmanager
+    async def param_compile(
+        self,
+        dispatchers: Optional[List[T_Dispatcher]] = None,
+        post_exception_event: bool = True,
+        print_exception: bool = True,
+        use_global_dispatchers: bool = True,
+    ):
+        dispatchers = [
+            *(self.prelude_dispatchers if use_global_dispatchers else []),
+            *(dispatchers if dispatchers else []),
+            *(self.finale_dispatchers if use_global_dispatchers else []),
+        ]
+
+        dii = DispatcherInterface(self, dispatchers)
+        dii_token = dii.ctx.set(dii)
+
+        try:
+            for dispatcher in dispatchers:
+                i = getattr(dispatcher, "beforeExecution", None)
+                if i:
+                    await run_always_await_safely(i, dii, exception, tb)  # type: ignore
+            yield dii
+        except RequirementCrashed:
+            traceback.print_exc()
+            raise
+        except Exception as e:
+            event: Optional[Dispatchable] = self.event_ctx.get()
+            if event is not None and event.__class__ is not ExceptionThrowed:
+                if print_exception:
+                    traceback.print_exc()
+                if post_exception_event:
+                    self.postEvent(ExceptionThrowed(exception=e, event=event))
+            raise
+        finally:
+            _, exception, tb = sys.exc_info()
+            for dispatcher in dispatchers:
+                i = getattr(dispatcher, "afterExecution", None)
+                if i:
+                    await run_always_await_safely(i, dii, exception, tb)  # type: ignore
+
+            dii.ctx.reset(dii_token)
+
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
         return self.loop.create_task(
             self.layered_scheduler(
@@ -250,29 +292,22 @@ class Broadcast:
         return self.namespaces[-1]
 
     def removeNamespace(self, name):
-        if self.containNamespace(name):
-            for index, i in enumerate(self.namespaces):
-                if i.name == name:
-                    self.namespaces.pop(index)
-                    return
-        else:
+        if not self.containNamespace(name):
             raise UnexistedNamespace(name)
+        for index, i in enumerate(self.namespaces):
+            if i.name == name:
+                self.namespaces.pop(index)
+                return
 
     def containNamespace(self, name):
-        for i in self.namespaces:
-            if i.name == name:
-                return True
-        return False
+        return any(i.name == name for i in self.namespaces)
 
     def getNamespace(self, name) -> "Namespace":
         if self.containNamespace(name):
             for i in self.namespaces:
                 if i.name == name:
                     return i
-            else:
-                raise UnexistedNamespace(name)
-        else:
-            raise UnexistedNamespace(name)
+        raise UnexistedNamespace(name)
 
     def hideNamespace(self, name):
         ns = self.getNamespace(name)
@@ -291,10 +326,7 @@ class Broadcast:
         ns.disabled = False
 
     def containListener(self, target):
-        for i in self.listeners:
-            if i.callable == target:
-                return True
-        return False
+        return any(i.callable == target for i in self.listeners)
 
     def getListener(self, target):
         for i in self.listeners:
@@ -320,8 +352,8 @@ class Broadcast:
         priority = int(priority)
 
         def receiver_wrapper(callable_target):
-            may_listener = self.getListener(callable_target)
-            if not may_listener:
+            listener = self.getListener(callable_target)
+            if not listener:
                 self.listeners.append(
                     Listener(
                         callable=callable_target,
@@ -332,11 +364,10 @@ class Broadcast:
                         decorators=decorators or [],
                     )
                 )
+            elif event in listener.listening_events:
+                raise RegisteredEventListener(event.__name__, "has been registered!")  # type: ignore
             else:
-                if event not in may_listener.listening_events:
-                    may_listener.listening_events.append(event)  # type: ignore
-                else:
-                    raise RegisteredEventListener(event.__name__, "has been registered!")  # type: ignore
+                listener.listening_events.append(event)  # type: ignore
             return callable_target
 
         return receiver_wrapper
