@@ -2,7 +2,7 @@ import asyncio
 import sys
 import traceback
 from contextlib import asynccontextmanager
-from typing import Callable, Dict, Iterable, List, Optional, Type, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
 from graia.broadcast.builtin.derive import DeriveDispatcher
 from graia.broadcast.entities.dispatcher import BaseDispatcher
@@ -52,6 +52,8 @@ class Broadcast:
 
     prelude_dispatchers: List["T_Dispatcher"]
     finale_dispatchers: List["T_Dispatcher"]
+
+    _background_tasks: Set[asyncio.Task] = set()
 
     def __init__(
         self,
@@ -257,7 +259,7 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
-        return self.loop.create_task(
+        task = self.loop.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
@@ -268,6 +270,9 @@ class Broadcast:
                 else [],
             )
         )
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
 
     @staticmethod
     def event_class_generator(target=Dispatchable):
