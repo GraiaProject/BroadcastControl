@@ -6,9 +6,9 @@ from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
 try:
-    from typing import get_args
-except ImportError:
     from typing_extensions import get_args
+except ImportError:
+    from typing import get_args
 
 
 T = TypeVar("T")

@@ -18,18 +18,14 @@ from ..typing import T_Dispatcher
 from ..utilles import Ctx, NestableIterable
 
 try:
-    from typing import get_args, get_origin
-except ImportError:
     from typing_extensions import get_args, get_origin
+except ImportError:
+    from typing import get_args, get_origin
 
 try:
-    from typing import Annotated
-
-    from typing_extensions import Annotated as AlterAnnotated
-except ImportError:
     from typing_extensions import Annotated
-
-    AlterAnnotated = None
+except ImportError:
+    from typing import Annotated
 
 if TYPE_CHECKING:
     from .. import Broadcast
@@ -92,7 +88,7 @@ class DispatcherInterface(Generic[T_Event]):
 
     @property
     def is_annotated(self) -> bool:
-        return get_origin(self.annotation) in {Annotated, AlterAnnotated}
+        return get_origin(self.annotation) is Annotated
 
     @property
     def annotated_origin(self) -> Any:
