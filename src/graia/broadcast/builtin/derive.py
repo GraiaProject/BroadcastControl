@@ -32,6 +32,7 @@ class DeriveDispatcher(BaseDispatcher):
         origin_arg, meta = args[0], args[1:]
         if meta and isinstance(meta[0], Origin):
             origin_arg = meta[0].target
+            meta = meta[1:]
         result = await interface.lookup_param(interface.name, origin_arg, interface.default)
         for i in meta:
             result = await i(result, interface)
