@@ -1,3 +1,4 @@
+import functools
 import inspect
 from collections import UserList
 from contextlib import contextmanager
@@ -13,6 +14,7 @@ from typing import (
     Generic,
     Iterable,
     List,
+    Mapping,
     Optional,
     Type,
     TypeVar,
@@ -99,10 +101,13 @@ cache_size = 4096
 
 @lru_cache(cache_size)
 def argument_signature(callable_target: Callable):
+    callable_annotation = get_annotations(callable_target, eval_str=True)
     return [
         (
             name,
-            param.annotation if param.annotation is not inspect.Signature.empty else None,
+            (callable_annotation.get(name) if isinstance(param.annotation, str) else param.annotation)
+            if param.annotation is not inspect.Signature.empty
+            else None,
             param.default if param.default is not inspect.Signature.empty else None,
         )
         for name, param in inspect.signature(callable_target).parameters.items()
@@ -217,3 +222,52 @@ class CoverDispatcher(BaseDispatcher):
     ):
         if self.origin.afterExecution:
             return await self.origin.afterExecution(CoveredObject(interface, {"event": self.event}), exception, tb)  # type: ignore
+
+
+try:
+    from inspect import get_annotations
+except ImportError:
+
+    def get_annotations(
+        obj: Callable,
+        *,
+        globals: Optional[Mapping[str, Any]] = None,
+        locals: Optional[Mapping[str, Any]] = None,
+        eval_str: bool = False,
+    ) -> Dict[str, Any]:  # sourcery skip: avoid-builtin-shadow
+        if not callable(obj):
+            raise TypeError(f"{obj!r} is not a module, class, or callable.")
+
+        ann = getattr(obj, "__annotations__", None)
+        obj_globals = getattr(obj, "__globals__", None)
+        obj_locals = None
+        unwrap = obj
+        if ann is None:
+            return {}
+
+        if not isinstance(ann, dict):
+            raise ValueError(f"{unwrap!r}.__annotations__ is neither a dict nor None")
+        if not ann:
+            return {}
+
+        if not eval_str:
+            return dict(ann)
+
+        if unwrap is not None:
+            while True:
+                if hasattr(unwrap, "__wrapped__"):
+                    unwrap = unwrap.__wrapped__
+                    continue
+                if isinstance(unwrap, functools.partial):
+                    unwrap = unwrap.func
+                    continue
+                break
+            if hasattr(unwrap, "__globals__"):
+                obj_globals = unwrap.__globals__
+
+        if globals is None:
+            globals = obj_globals
+        if locals is None:
+            locals = obj_locals
+
+        return {key: eval(value, globals, locals) if isinstance(value, str) else value for key, value in ann.items()}
