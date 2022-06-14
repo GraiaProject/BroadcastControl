@@ -183,7 +183,7 @@ class CoveredObject(metaclass=_CoveredObjectMeta):
         self.__covered__ = cover_params
 
     def __getattribute__(self, key: str):
-        if key == "__origin__" or key == "__covered__":
+        if key in {"__origin__", "__covered__"}:
             return super().__getattribute__(key)
         covered = super().__getattribute__("__covered__")
         if key in covered:
@@ -225,7 +225,7 @@ class CoverDispatcher(BaseDispatcher):
 
 
 try:
-    from inspect import get_annotations
+    from inspect import get_annotations  # type: ignore
 except ImportError:
 
     def get_annotations(
@@ -270,4 +270,4 @@ except ImportError:
         if locals is None:
             locals = obj_locals
 
-        return {key: eval(value, globals, locals) if isinstance(value, str) else value for key, value in ann.items()}
+        return {key: eval(value, globals, locals) if isinstance(value, str) else value for key, value in ann.items()}  # type: ignore

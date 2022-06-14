@@ -66,6 +66,7 @@ count = 100000
 
 event = TestEvent()
 listener = broadcast.getListener(r)
+assert listener is not None
 tasks = []
 import cProfile
 
