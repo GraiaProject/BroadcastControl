@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict
 from ..entities.decorator import Decorator
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.signatures import Force
-from ..utilles import Ctx, run_always_await_safely
+from ..utilles import Ctx, run_always_await
 
 if TYPE_CHECKING:
     from ..interfaces.dispatcher import DispatcherInterface
@@ -47,4 +47,4 @@ class DecoratorInterface(BaseDispatcher):
             with ctx_dei_returnvalue.use(
                 await interface.lookup_param(interface.name, interface.annotation, None) if not decorator.pre else None
             ):
-                return Force(await run_always_await_safely(decorator.target, self))
+                return Force(await run_always_await(decorator.target, self))
