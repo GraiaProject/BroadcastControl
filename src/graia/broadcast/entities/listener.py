@@ -1,4 +1,6 @@
-from typing import Callable, List, Optional, Type
+from __future__ import annotations
+
+from typing import Callable, Dict, List, Optional, Type
 
 from ..typing import T_Dispatcher
 from .decorator import Decorator
@@ -10,7 +12,7 @@ from .namespace import Namespace
 class Listener(ExecTarget):
     namespace: Namespace
     listening_events: List[Type[Dispatchable]]
-    priority: int
+    priorities: Dict[Type[Dispatchable] | None, int]
 
     def __init__(
         self,
@@ -25,4 +27,11 @@ class Listener(ExecTarget):
 
         self.namespace = namespace
         self.listening_events = listening_events
-        self.priority = priority
+        self.priorities = {None: priority}
+    
+    @property
+    def priority(self) -> int:
+        return self.priorities[None]
+
+    def add_priority(self, event: Type[Dispatchable], priority: int) -> None:
+        self.priorities[event] = priority
