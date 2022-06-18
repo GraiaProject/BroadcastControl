@@ -29,17 +29,11 @@ if TYPE_CHECKING:
     from graia.broadcast.typing import T_Dispatcher
 
 
-async def run_always_await(any_callable: Union[Awaitable, Callable]):
-    if inspect.isawaitable(any_callable):
-        return await any_callable
-    else:
-        return any_callable
-
-
-async def run_always_await_safely(callable, *args, **kwargs):
-    if iscoroutinefunction(callable):
-        return await callable(*args, **kwargs)
-    return callable(*args, **kwargs)
+async def run_always_await(callable, *args, **kwargs):
+    obj = callable(*args, **kwargs)
+    while inspect.isawaitable(obj):
+        obj = await obj
+    return obj
 
 
 T = TypeVar("T")
