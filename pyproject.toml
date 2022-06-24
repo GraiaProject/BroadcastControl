@@ -57,4 +57,5 @@ exclude_lines = [
     "def __repr__",
     "def __str__",
     "def __repr_args__",
+    "except ImportError:", # Don't complain about import fallback
 ]

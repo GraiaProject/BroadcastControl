@@ -84,7 +84,7 @@ class DispatcherInterface(Generic[T_Event]):
     @property
     def is_optional(self) -> bool:
         anno = self.annotation
-        return get_origin(anno) is Union and None in get_args(anno)
+        return get_origin(anno) is Union and type(None) in get_args(anno)
 
     @property
     def is_annotated(self) -> bool:
