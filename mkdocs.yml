@@ -1,0 +1,132 @@
+site_name: Broadcast Control API Reference
+theme:
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.expand
+    - navigation.top
+
+  name: material
+  language: zh
+  icon:
+    repo: fontawesome/brands/git-alt
+    logo: material/file-document-multiple-outline
+  favicon: images/favicon.png
+
+  font:
+    text: Noto Sans Simplified Chinese
+    code: JetBrains Mono
+
+  custom_dir: docs/overrides
+
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: 黑暗模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: 明亮模式
+
+extra_css:
+  - "assets/chat.css"
+  - "assets/extra.css"
+  - "assets/curtain.css"
+
+extra_javascript:
+  - "assets/admonition.js"
+
+repo_url: https://github.com/GraiaProject/Broadcast
+repo_name: GraiaProject/Broadcast
+edit_uri: blob/master/
+
+copyright: Copyright &copy; Graia Project 2021-2022.
+
+extra:
+  social:
+    - icon: fontawesome/brands/cloudflare
+      link: https://graia-broadcast.pages.dev/
+      name: CloudFlare 镜像
+    - icon: fontawesome/solid/book-open-reader
+      link: https://graia.readthedocs.io/projects/broadcast/
+      name: ReadTheDocs 镜像
+    - icon: fontawesome/brands/qq
+      link: https://jq.qq.com/?_wv=1027&k=VXp6plBD
+      name: QQ 群
+    - icon: material/compass
+      link: https://graiax.cn/
+      name: Graiax 社区
+    - icon: fontawesome/brands/github
+      link: https://github.com/GraiaProject
+      name: GitHub 组织
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - admonition # 提示块
+  - footnotes # 脚注
+  - meta # 定义元数据, 通过文章上下文控制, 如disqus
+  - pymdownx.caret # 下划线上标
+  - pymdownx.tilde # 删除线下标
+  - pymdownx.critic # 增加删除修改高亮注释, 可修饰行内或段落
+  - pymdownx.details # 提示块可折叠
+  - pymdownx.inlinehilite # 行内代码高亮
+  - pymdownx.highlight
+  - pymdownx.snippets
+  - pymdownx.mark # 文本高亮
+  - pymdownx.smartsymbols # 符号转换
+  - pymdownx.superfences # 代码嵌套在列表里
+  - pymdownx.keys
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - codehilite: # 代码高亮, 显示行号
+      guess_lang: false
+      linenums: true
+  - toc: # 锚点
+      permalink: 🔗
+  - pymdownx.arithmatex # 数学公式
+  - pymdownx.betterem: # 对加粗和斜体更好的检测
+      smart_enable: all
+  - pymdownx.magiclink: # 自动识别超链接
+      repo_url_shorthand: true
+      user: "GraiaProject"
+      repo: "Ariadne"
+      social_url_shorthand: true
+      repo_url_shortener: true
+  - pymdownx.tasklist: # 复选框checklist
+      custom_checkbox: true
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  - gen-files:
+      scripts:
+        - docs/gen_ref.py
+  - mkdocstrings:
+      watch:
+        - src/graia
+      handlers:
+        python:
+          paths: [src]
+          import:
+            - https://docs.python.org/zh-cn/3/objects.inv
+          selection:
+            docstring_style: google
+          rendering:
+            show_submodules: false
+            show_signature_annotations: yes
+            separate_signature: yes
+            docstring_section_style: list
+            line_length: 80
+
+  - literate-nav:
+      nav_file: NAV.md
+
+  - section-index
