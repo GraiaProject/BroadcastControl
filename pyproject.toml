@@ -1,38 +1,40 @@
-[tool.poetry]
+[project]
+# PEP 621 project metadata
+# See https://www.python.org/dev/peps/pep-0621/
+authors = [
+    {name = "GreyElaina", email = "GreyElaina@outlook.com"},
+]
+license = {text = "MIT"}
+requires-python = ">=3.7,<4.0"
+dependencies = [
+    "typing-extensions>=3.10.0; python_version < \"3.9\"",
+]
 name = "graia-broadcast"
-version = "0.18.1"
+version = "0.18.2"
 description = "a highly customizable, elegantly designed event system based on asyncio"
-authors = ["GreyElaina <GreyElaina@outlook.com>"]
-license = "MIT"
-packages = [{ include = "graia", from = "src" }]
 
-[tool.poetry.dependencies]
-python = "^3.7"
-typing-extensions = { version = ">=3.10.0", python = "<3.9" }
-
-[tool.poetry.dev-dependencies]
-black = "^22.1.0"
-pre-commit = "*"
-flake8 = "^4.0.1"
-isort = "^5.10.1"
-pytest = "^7.0.1"
-coverage = "^6.3.2"
-pytest-asyncio = "^0.18.2"
-
+[project.urls]
+[tool.pdm]
+includes = ["src/graia"]
+[tool.pdm.dev-dependencies]
+dev = [
+    "black<23.0.0,>=22.1.0",
+    "pre-commit",
+    "flake8<5.0.0,>=4.0.1",
+    "isort<6.0.0,>=5.10.1",
+    "pytest<8.0.0,>=7.0.1",
+    "coverage<7.0.0,>=6.3.2",
+    "pytest-asyncio<1.0.0,>=0.18.2",
+]
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["pdm-pep517"]
+build-backend = "pdm.pep517.api"
 
 [tool.black]
 line-length = 120
 
 [tool.isort]
 profile = "black"
-
-[[tool.poetry.source]]
-name = "tunapypi"
-default = true
-url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
 
 [tool.coverage.run]
 branch = true
