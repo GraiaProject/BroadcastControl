@@ -50,9 +50,7 @@ class InterruptControl:
             listeners.add(listener)
 
         try:
-            if timeout:
-                return await asyncio.wait_for(future, timeout)
-            return await future
+            return await asyncio.wait_for(future, timeout) if timeout else await future
         finally:  # 删除 Listener
             if not future.done():
                 for i in listeners:
@@ -61,7 +59,7 @@ class InterruptControl:
     def leader_listener_generator(self, waiter: Waiter, event_type: Type[Dispatchable], future: Future):
         async def inside_listener(event: event_type):
             if future.done():
-                return RemoveMe()
+                return RemoveMe
 
             result = await self.broadcast.Executor(
                 target=ExecTarget(
@@ -71,8 +69,8 @@ class InterruptControl:
                 ),
                 dispatchers=dispatcher_mixin_handler(event.Dispatcher),
             )
-
-            if result is not None:
+            # at present, the state of `future` is absolutely unknown.
+            if result is not None and not future.done():
                 future.set_result(result)
                 if not waiter.block_propagation:
                     return RemoveMe
