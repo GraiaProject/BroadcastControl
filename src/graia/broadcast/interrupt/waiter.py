@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, List, Optional, Type
+from typing import Any, Callable, List, Optional, Type
 
 from ..entities.decorator import Decorator
 from ..entities.event import Dispatchable
@@ -12,6 +12,7 @@ class Waiter(metaclass=ABCMeta):
     using_decorators: List[Decorator]
     priority: int
     block_propagation: bool
+    detected_event: Callable[..., Any]
 
     @classmethod
     def create(
@@ -37,9 +38,6 @@ class Waiter(metaclass=ABCMeta):
                 "detected_event": abstractmethod(detected_event),
             },
         )
-
-    async def detected_event(self) -> Any:
-        pass
 
     @classmethod
     def create_using_function(
