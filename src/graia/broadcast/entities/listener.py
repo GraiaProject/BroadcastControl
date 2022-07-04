@@ -28,7 +28,7 @@ class Listener(ExecTarget):
         self.namespace = namespace
         self.listening_events = listening_events
         self.priorities = {None: priority}
-    
+
     @property
     def priority(self) -> int:
         return self.priorities[None]

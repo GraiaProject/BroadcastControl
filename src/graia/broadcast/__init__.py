@@ -102,7 +102,9 @@ class Broadcast:
         event: Dispatchable,
         addition_dispatchers: Optional[List["T_Dispatcher"]] = None,
     ):
-        grouped: Dict[int, List[Listener]] = group_dict(listener_generator, lambda x: x.priorities.get(event.__class__) or x.priority)
+        grouped: Dict[int, List[Listener]] = group_dict(
+            listener_generator, lambda x: x.priorities.get(event.__class__) or x.priority
+        )
         event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
         if addition_dispatchers:
             event_dispatcher_mixin = event_dispatcher_mixin + addition_dispatchers

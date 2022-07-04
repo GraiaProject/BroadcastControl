@@ -80,7 +80,9 @@ class DebugList(UserList):
         print(i, item)
         return super().insert(i, item)
 
+
 K = TypeVar("K")
+
 
 def group_dict(iterable: Iterable[T], key_callable: Callable[[T], K]) -> Dict[K, List[T]]:
     temp = {}
