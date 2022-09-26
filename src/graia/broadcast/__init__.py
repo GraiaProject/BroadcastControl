@@ -7,7 +7,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 from graia.broadcast.builtin.derive import DeriveDispatcher
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 
-from .builtin.event import ExceptionThrowed
+from .builtin.event import EventExceptionThrown
 from .entities.decorator import Decorator
 from .entities.event import Dispatchable
 from .entities.exectarget import ExecTarget
@@ -195,11 +195,11 @@ class Broadcast:
             raise
         except Exception as e:
             event: Optional[Dispatchable] = self.event_ctx.get()
-            if event is not None and event.__class__ is not ExceptionThrowed:
+            if event is not None and event.__class__ is not EventExceptionThrown:
                 if print_exception:
                     traceback.print_exc()
                 if post_exception_event:
-                    self.postEvent(ExceptionThrowed(exception=e, event=event))
+                    self.postEvent(EventExceptionThrown(exception=e, event=event))
             raise
         finally:
             _, exception, tb = sys.exc_info()
@@ -245,11 +245,11 @@ class Broadcast:
             raise
         except Exception as e:
             event: Optional[Dispatchable] = self.event_ctx.get()
-            if event is not None and event.__class__ is not ExceptionThrowed:
+            if event is not None and event.__class__ is not EventExceptionThrown:
                 if print_exception:
                     traceback.print_exc()
                 if post_exception_event:
-                    self.postEvent(ExceptionThrowed(exception=e, event=event))
+                    self.postEvent(EventExceptionThrown(exception=e, event=event))
             raise
         finally:
             _, exception, tb = sys.exc_info()
@@ -355,7 +355,7 @@ class Broadcast:
             _name = event
             event = self.findEvent(event)  # type: ignore
             if not event:
-                raise InvalidEventName(_name + " is not valid!")  # type: ignore
+                raise InvalidEventName(f"{_name} is not valid!")
         priority = int(priority)
 
         def receiver_wrapper(callable_target):

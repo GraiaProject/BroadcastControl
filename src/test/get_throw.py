@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from graia.broadcast import Broadcast
-from graia.broadcast.builtin.event import ExceptionThrowed
+from graia.broadcast.builtin.event import EventExceptionThrown
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import Dispatchable
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
@@ -36,8 +36,8 @@ async def test_get_exc():
         executed.append(1)
         raise Exception("test")
 
-    @bcc.receiver(ExceptionThrowed, dispatchers=[TestDispatcher])
-    async def _(ev: ExceptionThrowed, event, exc: Exception, p):
+    @bcc.receiver(EventExceptionThrown, dispatchers=[TestDispatcher])
+    async def _(ev: EventExceptionThrown, event, exc: Exception, p):
         executed.append(1)
         assert ev.event.__class__ == event.__class__ == TestEvent
         assert ev.exception.__class__ == exc.__class__ == Exception
