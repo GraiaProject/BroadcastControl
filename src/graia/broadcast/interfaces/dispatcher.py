@@ -108,7 +108,6 @@ class DispatcherInterface(Generic[T_Event]):
 
     def crash(self):
         raise RequirementCrashed(
-            "the dispatching requirement crashed: ",
             self.name,
             self.annotation,
             self.default,
@@ -152,7 +151,6 @@ class DispatcherInterface(Generic[T_Event]):
 
                 return result
             raise RequirementCrashed(
-                "the dispatching requirement crashed: ",
                 self.name,
                 self.annotation,
                 self.default,

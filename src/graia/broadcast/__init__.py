@@ -1,4 +1,6 @@
 import asyncio
+import inspect
+import pprint
 import sys
 import traceback
 from contextlib import asynccontextmanager
@@ -141,7 +143,7 @@ class Broadcast:
         if is_listener and target.namespace.disabled:  # type: ignore
             raise DisabledNamespace("caught a disabled namespace: {0}".format(target.namespace.name))  # type: ignore
 
-        target_callable = target.callable if is_exectarget else target  # type: ignore
+        target_callable: Callable = target.callable if is_exectarget else target  # type: ignore
         parameter_compile_result = {}
 
         dispatchers = [
@@ -190,8 +192,30 @@ class Broadcast:
             result = await run_always_await(target_callable, **parameter_compile_result)
         except (ExecutionStop, PropagationCancelled):
             raise
-        except RequirementCrashed:
-            traceback.print_exc()
+        except RequirementCrashed as e:
+            name, *_ = e.args
+            param = inspect.signature(target_callable).parameters[name]
+            code = target_callable.__code__
+            etype = type(
+                "RequirementCrashed",
+                (RequirementCrashed, SyntaxError),
+                {},
+            )
+            traceback.print_exception(
+                etype,
+                etype(
+                    f"Unable to lookup parameter ({param}) by dispatchers\n{pprint.pformat(dispatchers)}",
+                    (
+                        code.co_filename,
+                        code.co_firstlineno,
+                        1,
+                        str(param),
+                        code.co_firstlineno,
+                        len(name) + 1,
+                    ),
+                ),
+                e.__traceback__,
+            )
             raise
         except Exception as e:
             event: Optional[Dispatchable] = self.event_ctx.get()
