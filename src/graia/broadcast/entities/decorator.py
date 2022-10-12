@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
-    from graia.broadcast.interfaces.decorator import DecoratorInterface
+    from ..interfaces.decorator import DecoratorInterface
 
 
 class Decorator:

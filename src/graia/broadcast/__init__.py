@@ -6,11 +6,10 @@ import traceback
 from contextlib import asynccontextmanager
 from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
-from graia.broadcast.builtin.derive import DeriveDispatcher
-from graia.broadcast.entities.dispatcher import BaseDispatcher
-
+from .builtin.derive import DeriveDispatcher
 from .builtin.event import EventExceptionThrown
 from .entities.decorator import Decorator
+from .entities.dispatcher import BaseDispatcher
 from .entities.event import Dispatchable
 from .entities.exectarget import ExecTarget
 from .entities.listener import Listener

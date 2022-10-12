@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Protocol, TypeVar
 
-from graia.broadcast.entities.dispatcher import BaseDispatcher
-from graia.broadcast.entities.signatures import ObjectContainer
-from graia.broadcast.interfaces.dispatcher import DispatcherInterface
+from ..entities.dispatcher import BaseDispatcher
+from ..entities.signatures import ObjectContainer
+from ..interfaces.dispatcher import DispatcherInterface
 
 try:
     from typing_extensions import get_args

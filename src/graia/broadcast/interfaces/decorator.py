@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 from ..entities.decorator import Decorator
 from ..entities.dispatcher import BaseDispatcher

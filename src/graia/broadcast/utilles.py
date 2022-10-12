@@ -8,7 +8,6 @@ from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
     Callable,
     Dict,
     Generic,

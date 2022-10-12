@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from graia.broadcast.typing import T_Dispatcher
+    from ..typing import T_Dispatcher
 
 
 @dataclass
