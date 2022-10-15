@@ -1,7 +1,7 @@
 import asyncio
+from typing import Annotated
 
 import pytest
-from typing_extensions import Annotated
 
 from graia.broadcast import Broadcast, Dispatchable
 from graia.broadcast.builtin.derive import Origin
