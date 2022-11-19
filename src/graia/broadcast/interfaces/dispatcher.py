@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from .. import Broadcast
 
 
-T_Event = TypeVar("T_Event", bound=Dispatchable)
+T_Event = TypeVar("T_Event", bound=Dispatchable, covariant=True)
 
 
 class DispatcherInterface(Generic[T_Event]):
