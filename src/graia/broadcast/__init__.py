@@ -234,7 +234,7 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
         if result.__class__ is Force:
-            return result.content
+            return result.target
         elif result is RemoveMe:
             if is_listener and target in self.listeners:
                 self.listeners.remove(target)
