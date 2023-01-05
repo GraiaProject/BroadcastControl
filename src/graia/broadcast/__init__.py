@@ -195,23 +195,19 @@ class Broadcast:
             name, *_ = e.args
             param = inspect.signature(target_callable).parameters[name]
             code = target_callable.__code__
-            etype = type(
+            etype: Type[Exception] = type(
                 "RequirementCrashed",
                 (RequirementCrashed, SyntaxError),
                 {},
             )
+            _args = (code.co_filename, code.co_firstlineno, 1, str(param))
+            if sys.version_info >= (3, 10):
+                _args += (code.co_firstlineno, len(name) + 1)
             traceback.print_exception(
                 etype,
                 etype(
                     f"Unable to lookup parameter ({param}) by dispatchers\n{pprint.pformat(dispatchers)}",
-                    (
-                        code.co_filename,
-                        code.co_firstlineno,
-                        1,
-                        str(param),
-                        code.co_firstlineno,
-                        len(name) + 1,
-                    ),
+                    _args,
                 ),
                 e.__traceback__,
             )
