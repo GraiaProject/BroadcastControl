@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import List, Optional, Type, Union
+from typing import Any, List, Optional, Type, Union
 
 from ..interfaces.dispatcher import DispatcherInterface as DispatcherInterface
 
@@ -21,3 +21,4 @@ class BaseDispatcher(metaclass=ABCMeta):
         exception: Optional[Exception],
         tb: Optional[TracebackType],
     ): ...
+    def afterTargetReturned(self, interface: DispatcherInterface, return_value: Optional[Any] = None): ...

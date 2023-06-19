@@ -235,7 +235,10 @@ class Broadcast:
                         await run_always_await(i, dii, exception, tb)  # type: ignore
 
             dii.ctx.reset(dii_token)
-
+        for dispatcher in dispatchers:
+            i = getattr(dispatcher, "afterTargetReturned", None)
+            if i:
+                await run_always_await(i, dii, result)
         if result.__class__ is Force:
             return result.target
         elif result is RemoveMe:

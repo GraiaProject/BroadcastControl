@@ -29,3 +29,4 @@ class BaseDispatcher(metaclass=ABCMeta):
     beforeExecution = None
     afterDispatch = None
     afterExecution = None
+    afterTargetReturned = None
