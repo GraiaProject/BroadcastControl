@@ -1,7 +1,5 @@
 import asyncio
 
-
-
 from graia.broadcast import Broadcast
 from graia.broadcast.builtin.decorators import Depend
 from graia.broadcast.entities.dispatcher import BaseDispatcher
@@ -23,6 +21,7 @@ class TestDispatcher(BaseDispatcher):
 class TestEvent(Dispatchable):
     class Dispatcher(BaseDispatcher):
         mixin = [TestDispatcher]
+
         @classmethod
         async def catch(cls, interface: "DispatcherInterface"):
             if interface.name == "ster1":
@@ -53,8 +52,8 @@ broadcast = Broadcast(
     decorators=[
         Depend(lambda ster: print("depend: ster", ster)),
         Depend(lambda ster1: print("depend: ster1", ster1)),
-        Depend(lambda ster2: print("depend: ster2", ster2))
-    ]
+        Depend(lambda ster2: print("depend: ster2", ster2)),
+    ],
 )
 async def s(e: TestEvent):
     print(e)
@@ -63,13 +62,10 @@ async def s(e: TestEvent):
 def error(ster: int):
     raise ValueError("error", ster)
 
-@broadcast.receiver(
-    TestEvent,
-    decorators=[Depend(error)]
-)
+
+@broadcast.receiver(TestEvent, decorators=[Depend(error)])
 async def s1(e: TestEvent):
     print(e)
-
 
 
 loop.run_until_complete(asyncio.wait([broadcast.postEvent(event)]))
