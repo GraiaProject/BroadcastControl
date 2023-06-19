@@ -28,6 +28,7 @@ class Depend(Decorator):
         result = await interface.dispatcher_interface.broadcast.Executor(
             target=self.depend_callable,
             dispatchers=interface.dispatcher_interface.dispatchers,
+            lifespan=False,
         )
 
         if self.cache:

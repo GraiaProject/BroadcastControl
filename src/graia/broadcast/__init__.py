@@ -127,6 +127,7 @@ class Broadcast:
         post_exception_event: bool = True,
         print_exception: bool = True,
         use_global_dispatchers: bool = True,
+        lifespan: bool = True,
     ):
         is_exectarget = is_listener = False
         current_oplog = None
@@ -157,10 +158,11 @@ class Broadcast:
         dii_token = dii.ctx.set(dii)
 
         try:
-            for dispatcher in dispatchers:
-                i = getattr(dispatcher, "beforeExecution", None)
-                if i:
-                    await run_always_await(i, dii)  # type: ignore
+            if lifespan:
+                for dispatcher in dispatchers:
+                    i = getattr(dispatcher, "beforeExecution", None)
+                    if i:
+                        await run_always_await(i, dii)  # type: ignore
 
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):
@@ -192,6 +194,8 @@ class Broadcast:
         except (ExecutionStop, PropagationCancelled):
             raise
         except RequirementCrashed as e:
+            if not lifespan:
+                raise
             name, *_ = e.args
             param = inspect.signature(target_callable).parameters[name]
             code = target_callable.__code__
@@ -213,6 +217,8 @@ class Broadcast:
             )
             raise
         except Exception as e:
+            if not lifespan:
+                raise
             event: Optional[Dispatchable] = self.event_ctx.get()
             if event is not None and event.__class__ is not EventExceptionThrown:
                 if print_exception:
@@ -222,10 +228,11 @@ class Broadcast:
             raise
         finally:
             _, exception, tb = sys.exc_info()
-            for dispatcher in dispatchers:
-                i = getattr(dispatcher, "afterExecution", None)
-                if i:
-                    await run_always_await(i, dii, exception, tb)  # type: ignore
+            if lifespan:
+                for dispatcher in dispatchers:
+                    i = getattr(dispatcher, "afterExecution", None)
+                    if i:
+                        await run_always_await(i, dii, exception, tb)  # type: ignore
 
             dii.ctx.reset(dii_token)
 
@@ -257,7 +264,7 @@ class Broadcast:
             for dispatcher in dispatchers:
                 i = getattr(dispatcher, "beforeExecution", None)
                 if i:
-                    await run_always_await(i, dii, exception, tb)  # type: ignore
+                    await run_always_await(i, dii)  # type: ignore
             yield dii
         except RequirementCrashed:
             traceback.print_exc()
