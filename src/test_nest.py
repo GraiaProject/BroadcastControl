@@ -10,7 +10,8 @@ from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 class TestDispatcher(BaseDispatcher):
     @classmethod
     async def beforeExecution(cls, interface: DispatcherInterface):
-        print("beforeExecution")
+        if interface.depth == 0:
+            print("beforeExecution")
 
     @classmethod
     async def catch(cls, interface: DispatcherInterface):
@@ -35,7 +36,8 @@ class TestEvent(Dispatchable):
             interface: DispatcherInterface,
             *args,
         ):
-            print("afterExecution")
+            if interface.depth == 0:
+                print("afterExecution")
 
 
 event = TestEvent()

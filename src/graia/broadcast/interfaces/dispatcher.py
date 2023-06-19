@@ -43,6 +43,7 @@ class DispatcherInterface(Generic[T_Event]):
         "current_path",
         "current_oplog",
         "success",
+        "_depth",
     }
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
@@ -55,8 +56,9 @@ class DispatcherInterface(Generic[T_Event]):
 
     parameter_contexts: List[Tuple[str, Any, Any]]
     success: Set[str]
+    _depth: int
 
-    def __init__(self, broadcast_instance: "Broadcast", dispatchers: List[T_Dispatcher]) -> None:
+    def __init__(self, broadcast_instance: "Broadcast", dispatchers: List[T_Dispatcher], depth: int = 0) -> None:
         self.broadcast = broadcast_instance
         self.dispatchers = dispatchers
         self.parameter_contexts = []
@@ -64,6 +66,7 @@ class DispatcherInterface(Generic[T_Event]):
         self.current_path = NestableIterable([])
         self.current_oplog = []
         self.success = set()
+        self._depth = depth
 
     @property
     def name(self) -> str:
@@ -101,6 +104,10 @@ class DispatcherInterface(Generic[T_Event]):
         if not self.is_annotated:
             raise TypeError("required a annotated annotation")
         return get_args(self.annotation)[1:]
+
+    @property
+    def depth(self) -> int:
+        return self._depth
 
     def inject_execution_raw(self, *dispatchers: T_Dispatcher):
         for dispatcher in dispatchers:

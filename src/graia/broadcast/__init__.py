@@ -127,7 +127,7 @@ class Broadcast:
         post_exception_event: bool = True,
         print_exception: bool = True,
         use_global_dispatchers: bool = True,
-        lifespan: bool = True,
+        depth: int = 0,
     ):
         is_exectarget = is_listener = False
         current_oplog = None
@@ -146,7 +146,7 @@ class Broadcast:
         target_callable: Callable = target.callable if is_exectarget else target  # type: ignore
         parameter_compile_result = {}
 
-        dispatchers = [
+        dispatchers: List[T_Dispatcher] = [
             *(self.prelude_dispatchers if use_global_dispatchers else []),
             *(dispatchers if dispatchers else []),
             *(target.dispatchers if is_exectarget else []),
@@ -154,15 +154,13 @@ class Broadcast:
             *(self.finale_dispatchers if use_global_dispatchers else []),
         ]
 
-        dii = DispatcherInterface(self, dispatchers)
+        dii = DispatcherInterface(self, dispatchers, depth)
         dii_token = dii.ctx.set(dii)
-
         try:
-            if lifespan:
-                for dispatcher in dispatchers:
-                    i = getattr(dispatcher, "beforeExecution", None)
-                    if i:
-                        await run_always_await(i, dii)  # type: ignore
+            for dispatcher in dispatchers:
+                i = getattr(dispatcher, "beforeExecution", None)
+                if i:
+                    await run_always_await(i, dii)  # type: ignore
 
             if is_exectarget:
                 for name, annotation, default in argument_signature(target_callable):
@@ -194,7 +192,7 @@ class Broadcast:
         except (ExecutionStop, PropagationCancelled):
             raise
         except RequirementCrashed as e:
-            if not lifespan:
+            if depth != 0:
                 raise
             name, *_ = e.args
             param = inspect.signature(target_callable).parameters[name]
@@ -217,7 +215,7 @@ class Broadcast:
             )
             raise
         except Exception as e:
-            if not lifespan:
+            if depth != 0:
                 raise
             event: Optional[Dispatchable] = self.event_ctx.get()
             if event is not None and event.__class__ is not EventExceptionThrown:
@@ -228,11 +226,10 @@ class Broadcast:
             raise
         finally:
             _, exception, tb = sys.exc_info()
-            if lifespan:
-                for dispatcher in dispatchers:
-                    i = getattr(dispatcher, "afterExecution", None)
-                    if i:
-                        await run_always_await(i, dii, exception, tb)  # type: ignore
+            for dispatcher in dispatchers:
+                i = getattr(dispatcher, "afterExecution", None)
+                if i:
+                    await run_always_await(i, dii, exception, tb)  # type: ignore
 
             dii.ctx.reset(dii_token)
 
@@ -251,13 +248,13 @@ class Broadcast:
         print_exception: bool = True,
         use_global_dispatchers: bool = True,
     ):
-        dispatchers = [
+        dispatchers: List[T_Dispatcher] = [
             *(self.prelude_dispatchers if use_global_dispatchers else []),
             *(dispatchers if dispatchers else []),
             *(self.finale_dispatchers if use_global_dispatchers else []),
         ]
 
-        dii = DispatcherInterface(self, dispatchers)
+        dii = DispatcherInterface(self, dispatchers, 0)
         dii_token = dii.ctx.set(dii)
 
         try:
