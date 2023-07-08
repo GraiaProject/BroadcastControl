@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
-from typing import List, Optional, Type, Union, Any
+from typing import Any, List, Optional, Type, Union
 
 from ..interfaces.dispatcher import DispatcherInterface as DispatcherInterface
 
