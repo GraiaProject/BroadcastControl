@@ -229,7 +229,7 @@ class Broadcast:
             for dispatcher in dispatchers:
                 i = getattr(dispatcher, "afterExecution", None)
                 if i:
-                    await run_always_await(i, dii, exception, tb)  # type: ignore
+                    await run_always_await(i, dii, exception, tb, None if exception else result)  # type: ignore
 
             dii.ctx.reset(dii_token)
 
