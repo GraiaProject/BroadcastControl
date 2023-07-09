@@ -45,6 +45,7 @@ class DispatcherInterface(Generic[T_Event]):
         "current_oplog",
         "success",
         "_depth",
+        "exec_result"
     }
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
