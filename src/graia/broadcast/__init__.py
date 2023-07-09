@@ -188,7 +188,7 @@ class Broadcast:
                 if i:
                     await run_always_await(i, dii, None, None)
 
-            result = await run_always_await(target_callable, **parameter_compile_result)
+            dii.exec_result.set_result(await run_always_await(target_callable, **parameter_compile_result))
         except (ExecutionStop, PropagationCancelled):
             raise
         except RequirementCrashed as e:
@@ -233,6 +233,7 @@ class Broadcast:
 
             dii.ctx.reset(dii_token)
 
+        result = dii.exec_result.result()
         if result.__class__ is Force:
             return result.target
         elif result is RemoveMe:

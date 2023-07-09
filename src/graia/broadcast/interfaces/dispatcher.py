@@ -11,6 +11,7 @@ from typing import (
     Union,
 )
 
+from asyncio import Future
 from ..entities.event import Dispatchable
 from ..entities.signatures import Force
 from ..exceptions import ExecutionStop, RequirementCrashed
@@ -47,6 +48,7 @@ class DispatcherInterface(Generic[T_Event]):
     }
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
+    exec_result: Future[Any]
 
     broadcast: "Broadcast"
     dispatchers: List[T_Dispatcher]
@@ -66,6 +68,7 @@ class DispatcherInterface(Generic[T_Event]):
         self.current_path = NestableIterable([])
         self.current_oplog = []
         self.success = set()
+        self.exec_result = Future()
         self._depth = depth
 
     @property
