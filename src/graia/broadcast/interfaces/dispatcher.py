@@ -1,3 +1,4 @@
+from asyncio import Future
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -11,7 +12,6 @@ from typing import (
     Union,
 )
 
-from asyncio import Future
 from ..entities.event import Dispatchable
 from ..entities.signatures import Force
 from ..exceptions import ExecutionStop, RequirementCrashed
@@ -45,7 +45,7 @@ class DispatcherInterface(Generic[T_Event]):
         "current_oplog",
         "success",
         "_depth",
-        "exec_result"
+        "exec_result",
     }
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
