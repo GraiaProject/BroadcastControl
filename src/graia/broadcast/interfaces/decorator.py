@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING
+from contextlib import AsyncExitStack
+from types import TracebackType
+from typing import TYPE_CHECKING, Optional, cast
 
 from ..entities.decorator import Decorator
 from ..entities.dispatcher import BaseDispatcher
@@ -48,3 +50,16 @@ class DecoratorInterface(BaseDispatcher):
                 await interface.lookup_param(interface.name, interface.annotation, None) if not decorator.pre else None
             ):
                 return Force(await run_always_await(decorator.target, self))
+
+    async def afterExecution(
+        self, interface: "DispatcherInterface", exception: Optional[Exception], tb: Optional[TracebackType]
+    ):
+        stack = cast(AsyncExitStack | None, interface.local_storage.get("_depend_astack"))
+
+        if stack is None:
+            return
+
+        if exception:
+            await stack.__aexit__(type(exception), exception, tb)
+        else:
+            await stack.aclose()
