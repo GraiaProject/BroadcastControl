@@ -8,17 +8,20 @@ from contextlib import (
 )
 from inspect import isasyncgenfunction, isgeneratorfunction
 from types import TracebackType
-from typing import Callable, ContextManager, AsyncContextManager
+from typing import AsyncContextManager, Callable, ContextManager
 
-from graia.broadcast.interfaces.dispatcher import DispatcherInterface as DispatcherInterface
-
+from ..entities.decorator import Decorator
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.exectarget import ExecTarget
 from ..entities.signatures import Force
+from ..interfaces.decorator import DecoratorInterface
+from ..interfaces.dispatcher import DispatcherInterface as DispatcherInterface
 
 
-class Depend:
-    target: ExecTarget
+class Depend(Decorator):
+    pre = True
+
+    exec_target: ExecTarget
     cache: bool = False
 
     raw: Callable
@@ -32,43 +35,38 @@ class Depend:
         elif isasyncgenfunction(callable) or isasyncgenfunction(getattr(callable, "__call__", None)):
             callable = asynccontextmanager(callable)
 
-        self.target = ExecTarget(callable)
+        self.exec_target = ExecTarget(callable)
+
+    async def target(self, interface: DecoratorInterface):
+        cache: dict = interface.local_storage['_depend_cached_results']
+        if self.raw in cache:
+            return cache[self.raw]
+        
+        result_tier1 = await interface.dispatcher_interface.broadcast.Executor(
+            target=self.exec_target,
+            dispatchers=interface.dispatcher_interface.dispatchers,
+            depth=interface.dispatcher_interface.depth + 1,
+        )
+        stack: AsyncExitStack = interface.local_storage['_depend_lifespan_manager']
+        
+        if isinstance(result_tier1, ContextManager):
+            result = stack.enter_context(result_tier1)
+            cache[self.raw] = result
+        elif isinstance(result_tier1, AsyncContextManager):
+            result = await stack.enter_async_context(result_tier1)
+            cache[self.raw] = result
+        else:
+            result = result_tier1
+            if self.cache:
+                cache[self.raw] = result
+        
+        return Force(result)
 
 
 class DependDispatcher(BaseDispatcher):
     async def beforeExecution(self, interface: DispatcherInterface):
         interface.local_storage['_depend_lifespan_manager'] = AsyncExitStack()
         interface.local_storage['_depend_cached_results'] = {}
-    
-    async def catch(self, interface: DispatcherInterface):
-        if not isinstance(interface.default, Depend):
-            return
-    
-        dep = interface.default
-
-        cache: dict = interface.local_storage['_depend_cached_results']
-        if dep.raw in cache:
-            return cache[dep.raw]
-        
-        result_tier1 = await interface.broadcast.Executor(
-            target=dep.target,
-            dispatchers=interface.dispatchers,
-            depth=interface.depth + 1,
-        )
-        stack: AsyncExitStack = interface.local_storage['_depend_lifespan_manager']
-        
-        if isinstance(result_tier1, ContextManager):
-            result = stack.enter_context(result_tier1)
-            cache[dep.raw] = result
-        elif isinstance(result_tier1, AsyncContextManager):
-            result = await stack.enter_async_context(result_tier1)
-            cache[dep.raw] = result
-        else:
-            result = result_tier1
-            if dep.cache:
-                cache[dep.raw] = result
-        
-        return Force(result)
 
     async def afterExecution(
         self,
