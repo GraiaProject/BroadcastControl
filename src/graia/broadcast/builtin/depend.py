@@ -10,6 +10,8 @@ from inspect import isasyncgenfunction, isgeneratorfunction
 from types import TracebackType
 from typing import AsyncContextManager, Callable, ContextManager
 
+from graia.broadcast.interfaces.dispatcher import DispatcherInterface as DispatcherInterface
+
 from ..entities.decorator import Decorator
 from ..entities.dispatcher import BaseDispatcher
 from ..entities.exectarget import ExecTarget
@@ -67,6 +69,9 @@ class DependDispatcher(BaseDispatcher):
     async def beforeExecution(self, interface: DispatcherInterface):
         interface.local_storage['_depend_lifespan_manager'] = AsyncExitStack()
         interface.local_storage['_depend_cached_results'] = {}
+
+    async def catch(self, interface: DispatcherInterface):
+        return
 
     async def afterExecution(
         self,
