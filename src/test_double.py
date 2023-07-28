@@ -53,7 +53,6 @@ loop = asyncio.new_event_loop()
 
 broadcast = Broadcast(
     loop=loop,
-    debug_flag=False,
 )
 
 

@@ -51,7 +51,6 @@ loop = asyncio.get_event_loop()
 
 broadcast = Broadcast(
     loop=loop,
-    debug_flag=False,
 )
 
 p = AsInt()

@@ -39,7 +39,6 @@ async def test_():
 
     broadcast = Broadcast(
         loop=asyncio.get_running_loop(),
-        debug_flag=False,
     )
 
     finish = []
