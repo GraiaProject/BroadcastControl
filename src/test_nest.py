@@ -61,8 +61,8 @@ async def s(e: TestEvent):
     print(e)
 
 
-def error(ster: int):
-    raise ValueError("error", ster)
+def error(a: int):
+    raise ValueError("error", a)
 
 
 @broadcast.receiver(TestEvent, decorators=[Depend(error)])

@@ -193,9 +193,11 @@ class Broadcast:
             raise
         except RequirementCrashed as e:
             if depth != 0:
-                raise
+                if not hasattr(e, "__target__"):
+                    e.__target__ = target_callable
+                raise e
             name, *_ = e.args
-            param = inspect.signature(target_callable).parameters[name]
+            param = inspect.signature(getattr(e, "__target__", target_callable)).parameters[name]
             code = target_callable.__code__
             etype: Type[Exception] = type(
                 "RequirementCrashed",
