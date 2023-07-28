@@ -6,6 +6,8 @@ import traceback
 from contextlib import asynccontextmanager
 from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
+from .builtin.defer import DeferDispatcher
+from .builtin.depend import DependDispatcher
 from .builtin.derive import DeriveDispatcher
 from .builtin.event import EventExceptionThrown
 from .entities.decorator import Decorator
@@ -69,8 +71,8 @@ class Broadcast:
         self.listeners = []
         self.event_ctx = Ctx("bcc_event_ctx")
         self.decorator_interface = DecoratorInterface()
-        self.prelude_dispatchers = [self.decorator_interface, DeriveDispatcher()]
-        self.finale_dispatchers = []
+        self.prelude_dispatchers = [self.decorator_interface, DependDispatcher(), DeriveDispatcher()]
+        self.finale_dispatchers = [DeferDispatcher()]
 
         @self.prelude_dispatchers.append
         class BroadcastBuiltinDispatcher(BaseDispatcher):
