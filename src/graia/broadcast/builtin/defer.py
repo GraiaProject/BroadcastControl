@@ -23,7 +23,7 @@ class DeferDispatcher(BaseDispatcher):
         callbacks: list[Callable[[DispatcherInterface, Exception | None, TracebackType | None], Awaitable[None]]]
         callbacks = interface.local_storage.get("defer_callbacks")  # type: ignore
 
-        if callbacks is None:
+        if not callbacks:
             return
-        
+
         await asyncio.wait([i(interface, exception, tb) for i in callbacks])
