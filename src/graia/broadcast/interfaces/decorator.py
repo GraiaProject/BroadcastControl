@@ -54,7 +54,7 @@ class DecoratorInterface(BaseDispatcher):
     async def afterExecution(
         self, interface: "DispatcherInterface", exception: Optional[Exception], tb: Optional[TracebackType]
     ):
-        stack = cast(AsyncExitStack | None, interface.local_storage.get("_depend_astack"))
+        stack = cast("AsyncExitStack | None", interface.local_storage.get("_depend_astack"))
 
         if stack is None:
             return

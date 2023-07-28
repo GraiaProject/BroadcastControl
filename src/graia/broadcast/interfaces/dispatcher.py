@@ -49,7 +49,7 @@ class DispatcherInterface(Generic[T_Event]):
     }
 
     ctx: "ClassVar[Ctx[DispatcherInterface]]" = Ctx("bcc_dii")
-    exec_result: Future[Any]
+    exec_result: "Future[Any]"
 
     broadcast: "Broadcast"
     dispatchers: List[T_Dispatcher]
