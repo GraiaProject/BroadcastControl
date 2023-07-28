@@ -48,7 +48,7 @@ class DependDispatcher(BaseDispatcher):
 
         cache: dict = interface.local_storage['_depend_cached_results']
         if dep.raw in cache:
-            return cache
+            return cache[dep.raw]
         
         result_tier1 = await interface.broadcast.Executor(
             target=dep.target,

@@ -51,8 +51,6 @@ class Broadcast:
 
     event_ctx: Ctx[Dispatchable]
 
-    debug_flag: bool
-
     prelude_dispatchers: List["T_Dispatcher"]
     finale_dispatchers: List["T_Dispatcher"]
 
@@ -62,11 +60,9 @@ class Broadcast:
         self,
         *,
         loop: Optional[asyncio.AbstractEventLoop] = None,
-        debug_flag: bool = False,
     ):
         self.loop = loop or asyncio.new_event_loop()
         self.default_namespace = Namespace(name="default", default=True)
-        self.debug_flag = debug_flag
         self.namespaces = []
         self.listeners = []
         self.event_ctx = Ctx("bcc_event_ctx")
