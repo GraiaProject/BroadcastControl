@@ -37,9 +37,7 @@ class TestEvent2(Dispatchable):
 async def test_():
     event = TestEvent1()
 
-    broadcast = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    broadcast = Broadcast()
 
     finish = []
 

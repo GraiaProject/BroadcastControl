@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-
 from graia.broadcast import Broadcast
 from graia.broadcast.builtin.event import EventExceptionThrown
 from graia.broadcast.entities.dispatcher import BaseDispatcher
@@ -26,9 +25,7 @@ class TestEvent(Dispatchable):
 
 @pytest.mark.asyncio
 async def test_get_exc():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
     executed = []
 
     @bcc.receiver(TestEvent)

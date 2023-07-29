@@ -49,9 +49,7 @@ class AsInt(Decorator):
 event = TestEvent()
 loop = asyncio.get_event_loop()
 
-broadcast = Broadcast(
-    loop=loop,
-)
+broadcast = Broadcast()
 
 p = AsInt()
 

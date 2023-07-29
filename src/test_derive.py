@@ -15,7 +15,7 @@ class ExampleEvent(Dispatchable):
 
 
 loop = asyncio.get_event_loop()
-broadcast = Broadcast(loop=loop)
+broadcast = Broadcast()
 
 
 async def test_derive_1(v: str, dii: DispatcherInterface):

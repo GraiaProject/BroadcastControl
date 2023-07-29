@@ -14,7 +14,7 @@ class ExampleEvent(Dispatchable):
 
 
 loop = asyncio.get_event_loop()
-broadcast = Broadcast(loop=loop)
+broadcast = Broadcast()
 
 
 @broadcast.receiver("ExampleEvent")  # or just receiver(ExampleEvent)

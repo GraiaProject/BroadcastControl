@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-
 from graia.broadcast import Broadcast
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import Dispatchable
@@ -42,9 +41,7 @@ class TestEvent(Dispatchable):
 
 @pytest.mark.asyncio
 async def test_lookup_directly():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     dii = DispatcherInterface(bcc, [])
 
@@ -54,9 +51,7 @@ async def test_lookup_directly():
 
 @pytest.mark.asyncio
 async def test_crash():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     dii = DispatcherInterface(bcc, [])
     with pytest.raises(RequirementCrashed):
@@ -67,9 +62,7 @@ async def test_crash():
 
 @pytest.mark.asyncio
 async def test_insert():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     dii = DispatcherInterface(bcc, [])
 
@@ -81,9 +74,7 @@ async def test_insert():
 
 @pytest.mark.asyncio
 async def test_event_dispatch():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     executed = []
 
@@ -102,9 +93,7 @@ async def test_event_dispatch():
 
 @pytest.mark.asyncio
 async def test_dispatcher_catch():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     executed = []
 
@@ -124,9 +113,7 @@ async def test_dispatcher_catch():
 @pytest.mark.asyncio
 @pytest.mark.xfail  # need further discussion
 async def test_dispatcher_priority():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     executed = []
 

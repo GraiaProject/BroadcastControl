@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
 from graia.broadcast import Broadcast
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import Dispatchable
@@ -32,9 +31,7 @@ class TestEvent(Dispatchable):
 
 @pytest.mark.asyncio
 async def test_event_dispatch():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     executed = []
 

@@ -19,7 +19,7 @@ class ExampleEvent(Dispatchable):
 
 @pytest.mark.asyncio
 async def test_derive():
-    broadcast = Broadcast(loop=asyncio.get_event_loop())
+    broadcast = Broadcast()
 
     l = []
 

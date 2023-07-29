@@ -2,7 +2,6 @@ import asyncio
 from typing import Optional
 
 import pytest
-
 from graia.broadcast import Broadcast
 from graia.broadcast.builtin.decorators import Depend, OptionalParam
 from graia.broadcast.entities.decorator import Decorator
@@ -62,9 +61,7 @@ class IntWhenInt(Decorator):
 
 @pytest.mark.asyncio
 async def test_optional_param():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     executed = []
 
@@ -97,9 +94,7 @@ def test_force_recurse():
 
 @pytest.mark.asyncio
 async def test_decorator():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
     deco = AsInt()
     executed = []
 
@@ -115,9 +110,7 @@ async def test_decorator():
 
 @pytest.mark.asyncio
 async def test_decorator_pre():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     executed = []
 
@@ -143,9 +136,7 @@ async def dep(ster: str, p: int):
 
 @pytest.mark.asyncio
 async def test_depend():
-    bcc = Broadcast(
-        loop=asyncio.get_running_loop(),
-    )
+    bcc = Broadcast()
 
     executed = []
 

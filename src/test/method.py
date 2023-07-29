@@ -28,7 +28,7 @@ class NestedEvent(ChainEvent):
 
 @pytest.mark.asyncio
 async def test_fail_lookup():
-    bcc = Broadcast(loop=asyncio.get_running_loop())
+    bcc = Broadcast()
 
     with pytest.raises(InvalidEventName):
         bcc.receiver("ImaginaryEvent")(lambda: ...)

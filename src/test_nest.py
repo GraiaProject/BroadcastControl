@@ -43,9 +43,7 @@ class TestEvent(Dispatchable):
 event = TestEvent()
 loop = asyncio.new_event_loop()
 
-broadcast = Broadcast(
-    loop=loop,
-)
+broadcast = Broadcast()
 
 
 @broadcast.receiver(

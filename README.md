@@ -14,8 +14,6 @@ poetry add graia-broadcast
 # Example
 
 ```python
-import asyncio
-
 from graia.broadcast import Dispatchable, BaseDispatcher, Broadcast
 from graia.broadcast.interfaces.dispatcher import DispatcherInterface
 
@@ -25,8 +23,7 @@ class ExampleEvent(Dispatchable):
             if interface.annotation is str:
                 return "ok, i'm."
 
-loop = asyncio.get_event_loop()
-broadcast = Broadcast(loop)
+broadcast = Broadcast()
 
 @broadcast.receiver("ExampleEvent") # or just receiver(ExampleEvent)
 async def event_listener(maybe_you_are_str: str):

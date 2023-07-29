@@ -41,8 +41,6 @@ from .utilles import (
 
 
 class Broadcast:
-    loop: asyncio.AbstractEventLoop
-
     default_namespace: Namespace
     namespaces: List[Namespace]
     listeners: List[Listener]
@@ -56,12 +54,7 @@ class Broadcast:
 
     _background_tasks: Set[asyncio.Task] = set()
 
-    def __init__(
-        self,
-        *,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
-    ):
-        self.loop = loop or asyncio.new_event_loop()
+    def __init__(self):
         self.default_namespace = Namespace(name="default", default=True)
         self.namespaces = []
         self.listeners = []
@@ -285,7 +278,7 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
-        task = self.loop.create_task(
+        task = asyncio.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
