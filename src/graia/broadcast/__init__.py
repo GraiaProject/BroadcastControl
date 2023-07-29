@@ -54,6 +54,8 @@ class Broadcast:
 
     _background_tasks: Set[asyncio.Task] = set()
 
+    _loop: asyncio.AbstractEventLoop | None = None
+
     def __init__(self):
         self.default_namespace = Namespace(name="default", default=True)
         self.namespaces = []
@@ -73,6 +75,12 @@ class Broadcast:
                     return interface.broadcast
                 elif interface.annotation is DispatcherInterface:
                     return interface
+
+    @property
+    def loop(self):
+        if self._loop is None:
+            self._loop = asyncio.get_running_loop()
+        return self._loop
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(
@@ -278,7 +286,7 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
-        task = asyncio.create_task(
+        task = self.loop.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
