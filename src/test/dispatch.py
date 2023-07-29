@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+
 from graia.broadcast import Broadcast
 from graia.broadcast.entities.dispatcher import BaseDispatcher
 from graia.broadcast.entities.event import Dispatchable

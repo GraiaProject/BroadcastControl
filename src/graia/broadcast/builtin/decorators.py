@@ -5,8 +5,8 @@ from ..entities.decorator import Decorator
 from ..entities.signatures import Force
 from ..exceptions import RequirementCrashed
 from ..interfaces.decorator import DecoratorInterface
-
 from .depend import Depend as Depend
+
 
 class OptionalParam(Decorator):
     pre = True

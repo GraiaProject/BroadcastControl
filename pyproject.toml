@@ -57,3 +57,6 @@ exclude_lines = [
     "def __repr_args__",
     "except ImportError:", # Don't complain about import fallback
 ]
+
+[tool.pyright]
+pythonVersion = "3.7"

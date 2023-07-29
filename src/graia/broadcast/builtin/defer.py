@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 from types import TracebackType
 from typing import Awaitable, Callable
@@ -9,7 +10,7 @@ from ..interfaces.dispatcher import DispatcherInterface
 
 class DeferDispatcher(BaseDispatcher):
     async def beforeExecution(self, interface: DispatcherInterface):
-        interface.local_storage['defer_callbacks'] = []
+        interface.local_storage["defer_callbacks"] = []
 
     async def catch(self, interface: DispatcherInterface):
         return

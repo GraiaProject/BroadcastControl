@@ -2,6 +2,7 @@ import asyncio
 from typing import Optional
 
 import pytest
+
 from graia.broadcast import Broadcast
 from graia.broadcast.builtin.decorators import Depend, OptionalParam
 from graia.broadcast.entities.decorator import Decorator
