@@ -54,9 +54,11 @@ class Broadcast:
 
     _background_tasks: Set[asyncio.Task] = set()
 
-    _loop: asyncio.AbstractEventLoop | None = None
-
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+    ):
         self.default_namespace = Namespace(name="default", default=True)
         self.namespaces = []
         self.listeners = []
@@ -64,6 +66,15 @@ class Broadcast:
         self.decorator_interface = DecoratorInterface()
         self.prelude_dispatchers = [self.decorator_interface, DependDispatcher(), DeriveDispatcher()]
         self.finale_dispatchers = [DeferDispatcher()]
+
+        if loop is not None:
+            import warnings
+
+            warnings.warn(
+                "The loop argument is deprecated since BroadcastControl 0.21, and scheduled for removal in Python 0.22.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         @self.prelude_dispatchers.append
         class BroadcastBuiltinDispatcher(BaseDispatcher):
@@ -78,9 +89,15 @@ class Broadcast:
 
     @property
     def loop(self):
-        if self._loop is None:
-            self._loop = asyncio.get_running_loop()
-        return self._loop
+        import warnings
+
+        warnings.warn(
+            "The loop attribute is deprecated since 0.21, and scheduled for removal in 0.22.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return asyncio.get_running_loop()
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(
@@ -286,7 +303,7 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
-        task = self.loop.create_task(
+        task = asyncio.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
