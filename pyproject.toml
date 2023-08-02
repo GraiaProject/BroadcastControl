@@ -6,7 +6,7 @@ license = { text = "MIT" }
 requires-python = ">=3.7,<4.0"
 dependencies = ["typing-extensions>=3.10.0; python_version < \"3.9\""]
 name = "graia-broadcast"
-version = "0.21.1"
+version = "0.22.0"
 description = "a highly customizable, elegantly designed event system based on asyncio"
 
 [project.urls]
@@ -57,3 +57,6 @@ exclude_lines = [
     "def __repr_args__",
     "except ImportError:", # Don't complain about import fallback
 ]
+
+[tool.pyright]
+pythonVersion = "3.7"

@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+
 from graia.broadcast import Broadcast
 from graia.broadcast.builtin.event import EventExceptionThrown
 from graia.broadcast.entities.dispatcher import BaseDispatcher
