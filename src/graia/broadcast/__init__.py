@@ -97,7 +97,7 @@ class Broadcast:
             stacklevel=2,
         )
 
-        return asyncio.get_running_loop()
+        return asyncio.get_event_loop()
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(
@@ -303,7 +303,7 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
-        task = asyncio.create_task(
+        task = asyncio.get_event_loop().create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
