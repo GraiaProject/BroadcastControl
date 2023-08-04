@@ -3,13 +3,15 @@
 # See https://www.python.org/dev/peps/pep-0621/
 authors = [{ name = "GreyElaina", email = "GreyElaina@outlook.com" }]
 license = { text = "MIT" }
-requires-python = ">=3.7,<4.0"
-dependencies = ["typing-extensions>=3.10.0; python_version < \"3.9\""]
+requires-python = ">=3.8,<4.0"
+dependencies = [
+    "typing-extensions>=3.10.0; python_version < \"3.9\"",
+    "creart~=0.3.0",
+]
 name = "graia-broadcast"
 version = "0.22.1"
 description = "a highly customizable, elegantly designed event system based on asyncio"
 
-[project.urls]
 [tool.pdm]
 includes = ["src/graia"]
 [tool.pdm.dev-dependencies]
