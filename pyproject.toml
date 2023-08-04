@@ -24,6 +24,10 @@ dev = [
     "coverage<7.0.0,>=6.3.2",
     "pytest-asyncio<1.0.0,>=0.18.2",
 ]
+
+[project.entry-points."creart.creators"]
+broadcast = "graia.broadcast.creator:BroadcastCreator"
+
 [build-system]
 requires = ["pdm-pep517"]
 build-backend = "pdm.pep517.api"
