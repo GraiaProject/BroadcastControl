@@ -6,6 +6,8 @@ import traceback
 from contextlib import asynccontextmanager
 from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
+from creart import it
+
 from .builtin.defer import DeferDispatcher
 from .builtin.depend import DependDispatcher
 from .builtin.derive import DeriveDispatcher
@@ -97,7 +99,7 @@ class Broadcast:
             stacklevel=2,
         )
 
-        return asyncio.get_running_loop()
+        return it(asyncio.AbstractEventLoop)
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(
@@ -303,7 +305,7 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
-        task = asyncio.create_task(
+        task = it(asyncio.AbstractEventLoop).create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
