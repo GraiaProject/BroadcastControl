@@ -9,11 +9,12 @@ dependencies = [
     "creart~=0.3.0",
 ]
 name = "graia-broadcast"
-version = "0.23.0"
+version = "0.23.1"
 description = "a highly customizable, elegantly designed event system based on asyncio"
 
-[tool.pdm]
+[tool.pdm.build]
 includes = ["src/graia"]
+
 [tool.pdm.dev-dependencies]
 dev = [
     "black<23.0.0,>=22.1.0",
