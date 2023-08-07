@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from creart import AbstractCreator, CreateTargetInfo, it
 
-from . import Broadcast
-from .interrupt import InterruptControl
+if TYPE_CHECKING:
+    from . import Broadcast
+    from .interrupt import InterruptControl
 
 
 class BroadcastCreator(AbstractCreator):
@@ -28,6 +31,9 @@ class BroadcastCreator(AbstractCreator):
     def create(
         create_type: type[Broadcast | InterruptControl],
     ) -> Broadcast | InterruptControl:
+        from . import Broadcast
+        from .interrupt import InterruptControl
+
         if issubclass(create_type, Broadcast):
             return create_type()
         elif issubclass(create_type, InterruptControl):
