@@ -77,7 +77,12 @@ for _ in range(count):
 s = time.time()
 # print(s)
 # cProfile.run("loop.run_until_complete(asyncio.gather(*tasks))")
-loop.run_until_complete(asyncio.gather(*tasks))
+
+
+async def main():
+    await asyncio.gather(*tasks)
+
+asyncio.run(main())
 
 e = time.time()
 n1 = e - s

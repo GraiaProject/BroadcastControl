@@ -6,8 +6,6 @@ import traceback
 from contextlib import asynccontextmanager
 from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
 
-from creart import it
-
 from .builtin.defer import DeferDispatcher
 from .builtin.depend import DependDispatcher
 from .builtin.derive import DeriveDispatcher
@@ -56,11 +54,7 @@ class Broadcast:
 
     _background_tasks: Set[asyncio.Task] = set()
 
-    def __init__(
-        self,
-        *,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
-    ):
+    def __init__(self):
         self.default_namespace = Namespace(name="default", default=True)
         self.namespaces = []
         self.listeners = []
@@ -68,15 +62,6 @@ class Broadcast:
         self.decorator_interface = DecoratorInterface()
         self.prelude_dispatchers = [self.decorator_interface, DependDispatcher(), DeriveDispatcher()]
         self.finale_dispatchers = [DeferDispatcher()]
-
-        if loop is not None:
-            import warnings
-
-            warnings.warn(
-                "The loop argument is deprecated since BroadcastControl 0.21, and scheduled for removal in Python 0.22.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         @self.prelude_dispatchers.append
         class BroadcastBuiltinDispatcher(BaseDispatcher):
@@ -88,18 +73,6 @@ class Broadcast:
                     return interface.broadcast
                 elif interface.annotation is DispatcherInterface:
                     return interface
-
-    @property
-    def loop(self):
-        import warnings
-
-        warnings.warn(
-            "The loop attribute is deprecated since 0.21, and scheduled for removal in 0.22.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return it(asyncio.AbstractEventLoop)
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(
@@ -305,7 +278,10 @@ class Broadcast:
             dii.ctx.reset(dii_token)
 
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
-        task = it(asyncio.AbstractEventLoop).create_task(
+        if not hasattr(self, "_loop"):
+            from creart import it
+            self._loop = it(asyncio.AbstractEventLoop)
+        task = self._loop.create_task(
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
