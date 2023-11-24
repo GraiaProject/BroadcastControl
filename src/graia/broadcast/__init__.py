@@ -4,7 +4,7 @@ import pprint
 import sys
 import traceback
 from contextlib import asynccontextmanager
-from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union, get_origin
 
 from .builtin.defer import DeferDispatcher
 from .builtin.depend import DependDispatcher
@@ -65,14 +65,17 @@ class Broadcast:
 
         @self.prelude_dispatchers.append
         class BroadcastBuiltinDispatcher(BaseDispatcher):
-            @staticmethod
-            async def catch(interface: DispatcherInterface):
-                if interface.annotation is interface.event.__class__:
-                    return interface.event
-                elif interface.annotation is Broadcast:
+            @classmethod
+            async def catch(cls, interface: DispatcherInterface):
+                annotation = get_origin(interface.annotation) or interface.annotation
+                if annotation is Broadcast:
                     return interface.broadcast
-                elif interface.annotation is DispatcherInterface:
+                if annotation is DispatcherInterface:
                     return interface
+                if annotation is interface.event.__class__:
+                    return interface.event
+                if isinstance(annotation, type) and isinstance(interface.event, annotation):
+                    return interface.event
 
     def default_listener_generator(self, event_class) -> Iterable[Listener]:
         return list(

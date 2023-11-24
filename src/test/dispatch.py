@@ -80,11 +80,14 @@ async def test_event_dispatch():
     executed = []
 
     @bcc.receiver(TestEvent)
-    async def _1(ster, p, b: Broadcast, i: DispatcherInterface):
+    async def _1(ster, p, b: Broadcast, e: TestEvent, e1: Dispatchable, i: DispatcherInterface, i1: DispatcherInterface[TestEvent]):
         assert ster == "1"
         assert p == "P_event"
         assert b is bcc
-        assert i.__class__ == DispatcherInterface
+        assert e.__class__ is TestEvent
+        assert e1.__class__ is TestEvent
+        assert i.__class__ is DispatcherInterface
+        assert i1.__class__ is DispatcherInterface
         executed.append(1)
 
     await bcc.postEvent(TestEvent())
