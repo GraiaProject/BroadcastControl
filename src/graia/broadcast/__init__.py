@@ -181,11 +181,13 @@ class Broadcast:
                 i = getattr(dispatcher, "afterDispatch", None)
                 if i:
                     await run_always_await(i, dii, None, None)
-
-            dii.exec_result.set_result(await run_always_await(target_callable, **parameter_compile_result))
-        except (ExecutionStop, PropagationCancelled):
+            result = await run_always_await(target_callable, **parameter_compile_result)
+            dii.exec_result.set_result(result)
+        except (ExecutionStop, PropagationCancelled) as e:
+            dii.exec_result.set_result(e)
             raise
         except RequirementCrashed as e:
+            dii.exec_result.set_exception(e)
             if depth != 0:
                 if not hasattr(e, "__target__"):
                     e.__target__ = target_callable
@@ -211,6 +213,7 @@ class Broadcast:
             )
             raise
         except Exception as e:
+            dii.exec_result.set_exception(e)
             if depth != 0:
                 raise
             event: Optional[Dispatchable] = self.event_ctx.get()

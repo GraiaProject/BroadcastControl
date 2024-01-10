@@ -9,7 +9,7 @@ dependencies = [
     "creart~=0.3.0",
 ]
 name = "graia-broadcast"
-version = "0.23.4"
+version = "0.23.5"
 description = "a highly customizable, elegantly designed event system based on asyncio"
 
 [tool.pdm.build]
