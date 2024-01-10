@@ -4,7 +4,17 @@ import pprint
 import sys
 import traceback
 from contextlib import asynccontextmanager
-from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union, get_origin
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Type,
+    Union,
+    get_origin,
+)
 
 from .builtin.defer import DeferDispatcher
 from .builtin.depend import DependDispatcher
@@ -286,6 +296,7 @@ class Broadcast:
     def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
         if not hasattr(self, "_loop"):
             from creart import it
+
             self._loop = it(asyncio.AbstractEventLoop)
         task = self._loop.create_task(
             self.layered_scheduler(
