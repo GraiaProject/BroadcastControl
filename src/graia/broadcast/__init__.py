@@ -302,11 +302,11 @@ class Broadcast:
             self.layered_scheduler(
                 listener_generator=self.default_listener_generator(event.__class__),
                 event=event,
-                addition_dispatchers=[
-                    CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)
-                ]
-                if upper_event
-                else [],
+                addition_dispatchers=(
+                    [CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)]
+                    if upper_event
+                    else []
+                ),
             )
         )
         self._background_tasks.add(task)
