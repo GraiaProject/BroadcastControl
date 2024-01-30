@@ -16,8 +16,7 @@ T = TypeVar("T")
 
 
 class Derive(Protocol[T]):
-    async def __call__(self, value: T, dispatcher_interface: DispatcherInterface) -> T:
-        ...
+    async def __call__(self, value: T, dispatcher_interface: DispatcherInterface) -> T: ...
 
 
 class Origin(ObjectContainer):

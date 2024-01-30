@@ -18,12 +18,10 @@ class TestEvent(Dispatchable):
                 return "1"
 
 
-class ChainEvent(TestEvent):
-    ...
+class ChainEvent(TestEvent): ...
 
 
-class NestedEvent(ChainEvent):
-    ...
+class NestedEvent(ChainEvent): ...
 
 
 @pytest.mark.asyncio

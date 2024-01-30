@@ -101,9 +101,11 @@ def argument_signature(callable_target: Callable):
     return [
         (
             name,
-            (callable_annotation.get(name) if isinstance(param.annotation, str) else param.annotation)
-            if param.annotation is not inspect.Signature.empty
-            else None,
+            (
+                (callable_annotation.get(name) if isinstance(param.annotation, str) else param.annotation)
+                if param.annotation is not inspect.Signature.empty
+                else None
+            ),
             param.default if param.default is not inspect.Signature.empty else None,
         )
         for name, param in inspect.signature(callable_target).parameters.items()
