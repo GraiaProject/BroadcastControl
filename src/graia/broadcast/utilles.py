@@ -149,18 +149,18 @@ class NestableIterable(Iterable[T]):
         self.index_stack = [-1]
 
     def __iter__(self):
-        index = self.index_stack[-1]
-        self.index_stack.append(index)
+        stack = self.index_stack
+        index = stack[-1]
+        stack.append(index)
 
         start_offset = index + 1
         try:
-            for self.index_stack[-1], content in enumerate(
-                self.iterable[start_offset:],
-                start=start_offset,
-            ):
+            for content in self.iterable[start_offset:]:
+                stack[-1] += 1
                 yield content
         finally:
-            self.index_stack.pop()
+            stack.pop()
+
 
 
 class _CoveredObjectMeta(type):
