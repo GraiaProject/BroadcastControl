@@ -162,7 +162,6 @@ class NestableIterable(Iterable[T]):
             stack.pop()
 
 
-
 class _CoveredObjectMeta(type):
     if TYPE_CHECKING:
         __origin__: Any
