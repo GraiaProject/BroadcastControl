@@ -12,7 +12,6 @@ from typing import (
     Union,
 )
 
-from ..entities.event import Dispatchable
 from ..entities.signatures import Force
 from ..exceptions import ExecutionStop, RequirementCrashed
 from ..typing import T_Dispatcher
@@ -32,7 +31,7 @@ if TYPE_CHECKING:
     from .. import Broadcast
 
 
-T_Event = TypeVar("T_Event", bound=Dispatchable, covariant=True)
+T_Event = TypeVar("T_Event", covariant=True)
 
 
 class DispatcherInterface(Generic[T_Event]):
