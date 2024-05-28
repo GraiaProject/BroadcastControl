@@ -1,6 +1,6 @@
 import asyncio
 from asyncio import Future, get_running_loop
-from typing import Optional, Type, Union
+from typing import Any, Optional, Type, Union
 
 from .. import Broadcast
 from ..entities.event import Dispatchable
