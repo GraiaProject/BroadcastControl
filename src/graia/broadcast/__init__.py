@@ -5,6 +5,7 @@ import sys
 import traceback
 from contextlib import asynccontextmanager
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterable,
@@ -104,15 +105,17 @@ class Broadcast:
     async def layered_scheduler(
         self,
         listener_generator: Iterable[Listener],
-        event: Dispatchable,
+        event: Any,
         addition_dispatchers: Optional[List["T_Dispatcher"]] = None,
     ):
         grouped: Dict[int, List[Listener]] = group_dict(
             listener_generator, lambda x: x.priorities.get(event.__class__) or x.priority
         )
-        event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
-        if addition_dispatchers:
-            event_dispatcher_mixin = event_dispatcher_mixin + addition_dispatchers
+        event_dispatcher_mixin = []
+        if hasattr(event, "Dispatcher"):
+            event_dispatcher_mixin = dispatcher_mixin_handler(event.Dispatcher)
+            if addition_dispatchers:
+                event_dispatcher_mixin = event_dispatcher_mixin + addition_dispatchers
         with self.event_ctx.use(event):
             for _, current_group in sorted(grouped.items(), key=lambda x: x[0]):
                 tasks = [
