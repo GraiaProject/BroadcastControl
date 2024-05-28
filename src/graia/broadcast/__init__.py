@@ -296,7 +296,7 @@ class Broadcast:
 
             dii.ctx.reset(dii_token)
 
-    def postEvent(self, event: Dispatchable, upper_event: Optional[Dispatchable] = None):
+    def postEvent(self, event: Any, upper_event: Optional[Any] = None):
         if not hasattr(self, "_loop"):
             from creart import it
 
@@ -307,7 +307,7 @@ class Broadcast:
                 event=event,
                 addition_dispatchers=(
                     [CoverDispatcher(i, upper_event) for i in dispatcher_mixin_handler(upper_event.Dispatcher)]
-                    if upper_event
+                    if upper_event and hasattr(upper_event, "Dispatcher")
                     else []
                 ),
             )
@@ -385,7 +385,7 @@ class Broadcast:
 
     def receiver(
         self,
-        event: Union[str, Type[Dispatchable]],
+        event: Union[str, Type[Any]],
         priority: int = 16,
         dispatchers: Optional[List[T_Dispatcher]] = None,
         namespace: Optional[Namespace] = None,
