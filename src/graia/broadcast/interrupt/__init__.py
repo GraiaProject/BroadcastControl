@@ -56,7 +56,7 @@ class InterruptControl:
                 for i in listeners:
                     self.broadcast.removeListener(i)
 
-    def leader_listener_generator(self, waiter: Waiter, event_type: Type[Dispatchable], future: Future):
+    def leader_listener_generator(self, waiter: Waiter, event_type: Type[Any], future: Future):
         async def inside_listener(event: event_type):
             if future.done():
                 return RemoveMe
@@ -67,7 +67,7 @@ class InterruptControl:
                     inline_dispatchers=waiter.using_dispatchers,
                     decorators=waiter.using_decorators,
                 ),
-                dispatchers=dispatcher_mixin_handler(event.Dispatcher),
+                dispatchers=dispatcher_mixin_handler(event.Dispatcher) if hasattr(event, "Dispatcher") else [],
             )
             # at present, the state of `future` is absolutely unknown.
             if result is not None and not future.done():
